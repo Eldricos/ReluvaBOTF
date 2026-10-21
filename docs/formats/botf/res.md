@@ -19,7 +19,7 @@ German one 6,014), no folders, names in lower case. 299 entries are stored
 | `.hob` | 265 | 5 MB | `t01_a.hob`, `ch1_a.hob`, `cphaser.hob` | 3D models for ship combat; `_a`/`_b`/`_c` look like levels of detail |
 | `.ani` | 65 | 13 MB | `gmel.ani`, `bnol.ani`/`bnom.ani`/`bnos.ani` | animations; `l`/`m`/`s` endings in three sizes (76,860 / 27,708 / 12,348 bytes) |
 | `.cur` | 26 | 544 KB | `generic.cur`, `shipmove.cur`, `hwait.cur` | mouse cursors, some per race |
-| `.tdb` | 22 | 339 KB | `cdiplomt.tdb`, `minor1.tdb`, `teachtip.tdb`, `treaty.tdb` | text: diplomacy per race, minor races, tutorial tips, intelligence reports |
+| `.tdb` | 22 | 339 KB | `cdiplomt.tdb`, `minor1.tdb`, `teachtip.tdb`, `treaty.tdb` | text: diplomacy per race, minor races, tutorial tips, intelligence reports ([tdb.md](tdb.md)) |
 | `.fnt` | 21 | 962 KB | `human15.fnt`, `klingn28.fnt`, `generic9.fnt` | fonts per race in 9, 15, 20 and 28 point ([fnt.md](fnt.md)) |
 | `.scr` | 20 | 3 KB | `ceogalli.scr` | end-of-game scripts, matching the CD's `*EOG*.wav` |
 | `.bin` | 18 | 159 KB | `morale.bin`, `planboni.bin`, `shipname.bin`, `starname.bin`, `combat.bin`, `converse.bin` | rule and name tables |

@@ -40,6 +40,24 @@ std::string utf16leToUtf8(const uint16_t* units, size_t count) {
     return out;
 }
 
+std::string windows1252ToUtf8(std::string_view text) {
+    // 0x80-0x9F as Windows-1252 assigns them (0 where it doesn't).
+    static const uint16_t kHigh[32] = {
+        0x20ac, 0,      0x201a, 0x0192, 0x201e, 0x2026, 0x2020, 0x2021, 0x02c6, 0x2030, 0x0160,
+        0x2039, 0x0152, 0,      0x017d, 0,      0,      0x2018, 0x2019, 0x201c, 0x201d, 0x2022,
+        0x2013, 0x2014, 0x02dc, 0x2122, 0x0161, 0x203a, 0x0153, 0,      0x017e, 0x0178};
+    std::string out;
+    out.reserve(text.size());
+    for (char ch : text) {
+        const uint8_t c = uint8_t(ch);
+        if (c >= 0x80 && c < 0xa0)
+            appendUtf8(out, kHigh[c - 0x80] ? kHigh[c - 0x80] : 0xfffd);
+        else
+            appendUtf8(out, c);
+    }
+    return out;
+}
+
 uint32_t nextUtf8(std::string_view s, size_t& i) {
     const auto b = [&](size_t k) { return uint8_t(s[k]); };
     const uint8_t c = b(i++);

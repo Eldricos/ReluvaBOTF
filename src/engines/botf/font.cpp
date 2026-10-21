@@ -140,4 +140,35 @@ int Font::draw(Surface& s, int x, int y, std::string_view utf8, std::optional<Co
     return x;
 }
 
+std::vector<std::string> Font::wrap(std::string_view utf8, int width) const {
+    std::vector<std::string> lines;
+    std::string line;
+    size_t start = 0;
+    while (start <= utf8.size()) {
+        size_t end = utf8.find('\n', start);
+        if (end == std::string_view::npos)
+            end = utf8.size();
+        const std::string_view paragraph = utf8.substr(start, end - start);
+        line.clear();
+        size_t w = 0;
+        while (w < paragraph.size()) {
+            size_t space = paragraph.find(' ', w);
+            if (space == std::string_view::npos)
+                space = paragraph.size();
+            const std::string_view word = paragraph.substr(w, space - w);
+            const std::string candidate = line.empty() ? std::string(word) : line + " " + std::string(word);
+            if (!line.empty() && measure(candidate) > width) {
+                lines.push_back(line);
+                line = std::string(word);
+            } else {
+                line = candidate;
+            }
+            w = space + 1;
+        }
+        lines.push_back(line);
+        start = end + 1;
+    }
+    return lines;
+}
+
 } // namespace reluva::botf

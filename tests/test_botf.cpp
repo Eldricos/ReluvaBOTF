@@ -9,6 +9,7 @@
 #include "engines/botf/font.h"
 #include "engines/botf/game_files.h"
 #include "engines/botf/snd_archive.h"
+#include "engines/botf/text_table.h"
 
 #include <algorithm>
 #include <cstdio>
@@ -207,6 +208,76 @@ void testFont() {
     // A row whose cells can't be told apart fails.
     CHECK(font.load(makeFont(8, 4)));
     CHECK(font.load(Bytes(100, 0)));
+}
+
+// A .tdb as docs/formats/botf/tdb.md describes: count, a leftover value,
+// the longest length, 0; per string key, length, a leftover value, offset;
+// the strings, stored in another order than the records.
+Bytes makeTable(const std::vector<std::pair<uint32_t, std::string>>& strings) {
+    Bytes text;
+    std::vector<uint32_t> offsets(strings.size());
+    for (size_t i = strings.size(); i-- > 0;) { // last string first
+        offsets[i] = uint32_t(text.size());
+        text.insert(text.end(), strings[i].second.begin(), strings[i].second.end());
+        text.push_back(0);
+    }
+    Bytes f;
+    uint32_t longest = 0;
+    for (const auto& s : strings)
+        longest = std::max(longest, uint32_t(s.second.size() + 1));
+    put32(f, uint32_t(strings.size()));
+    put32(f, 0x005a0628);
+    put32(f, longest);
+    put32(f, 0);
+    for (size_t i = 0; i < strings.size(); ++i) {
+        put32(f, strings[i].first);
+        put32(f, uint32_t(strings[i].second.size() + 1));
+        put32(f, 0x005a0a02 + uint32_t(i));
+        put32(f, offsets[i]);
+    }
+    f.insert(f.end(), text.begin(), text.end());
+    return f;
+}
+
+void testTextTable() {
+    TextTable table;
+    const Bytes data = makeTable({{0x00410008, " Greetings from %1.\n"},
+                                  {0x00481307, " %s1 and %2 have formed an alliance.\n"},
+                                  {0x00410018, " Gr\xf6\xdf" "e \x85\n"}});
+    CHECK(!table.load(data));
+    CHECK(table.entries().size() == 3 && table.longest() == 38);
+    CHECK(table.entries()[0].key == 0x00410008 && table.entries()[0].text == " Greetings from %1.\n");
+    CHECK(table.find(0x00481307) == &table.entries()[1]);
+    CHECK(table.find(0x00410018)->text == " Gr\xc3\xb6\xc3\x9f" "e \xe2\x80\xa6\n"); // Windows-1252
+    CHECK(!table.find(1));
+    CHECK(displayText(table.entries()[0].text) == "Greetings from %1.");
+    CHECK(displayText("") == "" && displayText(" \n") == "");
+
+    // Damaged tables fail: a count too large, a string past the end, a
+    // string without its zero byte.
+    Bytes bad = data;
+    set32(bad, 0, 1000);
+    CHECK(table.load(bad));
+    bad = data;
+    set32(bad, 16 + 12, 5000);
+    CHECK(table.load(bad));
+    bad = data;
+    bad.pop_back();
+    CHECK(table.load(bad));
+    CHECK(table.load(Bytes(8, 0)));
+    CHECK(!table.load(makeTable({})) && table.entries().empty());
+}
+
+void testWrap() {
+    Font font;
+    CHECK(!font.load(makeFont(8)));
+    // Every glyph advances 3 to 6 pixels, a space 4: '1' 3, '2' 4, '3' 5.
+    CHECK(font.measure("12") == 7);
+    CHECK(font.wrap("12 12 12", 18) == std::vector<std::string>({"12 12", "12"}));
+    CHECK(font.wrap("12 12 12", 100) == std::vector<std::string>({"12 12 12"}));
+    CHECK(font.wrap("123123 1", 6) == std::vector<std::string>({"123123", "1"})); // too wide: on its own
+    CHECK(font.wrap("1\n\n2", 100) == std::vector<std::string>({"1", "", "2"}));
+    CHECK(font.wrap("", 100) == std::vector<std::string>({""}));
 }
 
 void testLzss() {
@@ -435,6 +506,8 @@ int main() {
     std::filesystem::remove_all(tmp, ec);
     testLzss();
     testFont();
+    testWrap();
+    testTextTable();
     testAltRes(tmp / "alt");
     testImaWithoutHeader();
     testSnd(tmp / "snd");

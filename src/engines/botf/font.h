@@ -10,6 +10,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <optional>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -49,6 +50,9 @@ public:
     // the text.
     int draw(Surface& surface, int x, int y, std::string_view utf8, std::optional<Color> tint = std::nullopt,
              int scale = 1) const;
+    // Splits UTF-8 text into lines at most `width` pixels wide, breaking at
+    // spaces and newlines; a word wider than a line gets a line of its own.
+    std::vector<std::string> wrap(std::string_view utf8, int width) const;
 
 private:
     image::Image sheet_;

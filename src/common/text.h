@@ -14,6 +14,10 @@ namespace reluva::text {
 // become U+FFFD.
 std::string utf16leToUtf8(const uint16_t* units, size_t count);
 
+// Convert Windows-1252 text (Latin-1 plus typographic characters in
+// 0x80-0x9F) to UTF-8; its five unassigned bytes become U+FFFD.
+std::string windows1252ToUtf8(std::string_view text);
+
 // The code point at s[i] of UTF-8 text, advancing i past it (U+FFFD for a
 // bad sequence). i must be less than s.size().
 uint32_t nextUtf8(std::string_view s, size_t& i);

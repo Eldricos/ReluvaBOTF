@@ -9,8 +9,8 @@
 // docs/engines/botf.md.
 //
 // For now the engine is a data viewer: the images of stbof.res and alt.res,
-// stbof.res's fonts, and the sounds of sfx.snd, the language's speech
-// archive and music.snd (see viewers.h for the keys). Tab switches between them; Esc goes back to
+// stbof.res's fonts, the sounds of sfx.snd, the language's speech archive
+// and music.snd, and stbof.res's text tables (see viewers.h for the keys). Tab switches between them; Esc goes back to
 // the launcher.
 
 #include "engines/engine.h"
@@ -28,6 +28,7 @@ namespace {
 
 using botf::AltResArchive;
 using botf::FontViewer;
+using botf::TextViewer;
 using botf::GameFiles;
 using botf::ImageViewer;
 using botf::SndArchive;
@@ -87,11 +88,12 @@ public:
             soundArchives.push_back({name, snd.get()});
         SoundViewer sounds(sys_, screen_, soundArchives, audioOut ? &mixer : nullptr);
         FontViewer fonts(sys_, screen_, stbof_);
+        TextViewer texts(sys_, screen_, stbof_);
 
-        // Page 0 shows images, 1 fonts, 2 sounds; Tab moves to the next one
-        // that has something to show.
-        constexpr int kPages = 3;
-        const size_t counts[kPages] = {images.count(), fonts.count(), sounds.count()};
+        // Page 0 shows images, 1 fonts, 2 sounds, 3 text; Tab moves to the
+        // next one that has something to show.
+        constexpr int kPages = 4;
+        const size_t counts[kPages] = {images.count(), fonts.count(), sounds.count(), texts.count()};
         int page = 0;
         while (counts[page] == 0 && page < kPages - 1)
             ++page;
@@ -100,8 +102,10 @@ public:
                 images.activate();
             else if (page == 1)
                 fonts.activate();
-            else
+            else if (page == 2)
                 sounds.activate();
+            else
+                texts.activate();
         };
         activate();
         while (true) {
@@ -126,8 +130,10 @@ public:
                     images.handleKey(ev.key);
                 else if (page == 1)
                     fonts.handleKey(ev.key);
-                else
+                else if (page == 2)
                     sounds.handleKey(ev.key);
+                else
+                    texts.handleKey(ev.key);
             }
             if (page == 2)
                 sounds.update(sys_.getMillis());

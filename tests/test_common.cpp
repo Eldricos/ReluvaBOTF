@@ -101,6 +101,9 @@ static void testUtf16() {
     const uint16_t lone[] = {0xd800, 'x'};
     CHECK(text::utf16leToUtf8(lone, 2) == "\xef\xbf\xbdx");
     CHECK(text::utf16leToUtf8(nullptr, 0).empty());
+    // Windows-1252: Latin-1, its typographic characters, unassigned bytes.
+    CHECK(text::windows1252ToUtf8("Gr\xf6\xdf" "e \x85 \x96 \x99 \x81") ==
+          "Gr\xc3\xb6\xc3\x9f" "e \xe2\x80\xa6 \xe2\x80\x93 \xe2\x84\xa2 \xef\xbf\xbd");
 }
 
 static void testFont() {

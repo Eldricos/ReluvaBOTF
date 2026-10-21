@@ -10,6 +10,7 @@
 #include "common/types.h"
 #include "engines/botf/font.h"
 #include "engines/botf/snd_archive.h"
+#include "engines/botf/text_table.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -72,6 +73,31 @@ private:
     std::vector<std::string> names_;
     size_t current_ = 0;
     int scale_ = 1;
+};
+
+// Shows the .tdb text tables of an archive (stbof.res), each entry's key
+// and its text drawn in one of the game's fonts.
+//   Left/Right: previous/next table   Up/Down: scroll   PageUp/PageDown:
+//   scroll a screen   Home/End: first/last entry   F: the next font
+class TextViewer {
+public:
+    TextViewer(System& sys, Surface& screen, const Archive& archive);
+    size_t count() const { return tables_.size(); }
+    void activate();
+    void handleKey(uint32_t key);
+
+private:
+    void load();
+    void show();
+
+    System& sys_;
+    Surface& screen_;
+    const Archive& archive_;
+    std::vector<std::string> tables_, fonts_;
+    size_t current_ = 0, font_ = 0, first_ = 0;
+    TextTable table_;
+    Font fontData_;
+    std::string error_;
 };
 
 // Plays the .snd archives' sounds: sfx.snd's effects, the language's speech,
