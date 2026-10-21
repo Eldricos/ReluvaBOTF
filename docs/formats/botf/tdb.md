@@ -6,7 +6,8 @@ them.
 
 Source: the first 2 KB of all 22 tables in the English `stbof.res`, and
 three whole tables, `treaty.tdb`, `minor6.tdb` and `cdiplomt.tdb`
-(`scripts/botf_res_sample.py --ext tdb`), October 2026.
+(`scripts/botf_res_sample.py --ext tdb`), October 2026. All 22 tables then
+loaded in Reluva's viewer.
 
 | Tables | Strings | Text |
 |---|---|---|

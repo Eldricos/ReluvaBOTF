@@ -15,6 +15,11 @@ Only standard-library Python 3.8+ is needed. For the text tables:
 
     python3 botf_res_sample.py "C:\\Program Files\\MicroProse\\Trek" --ext tdb \\
         --whole treaty.tdb minor6.tdb cdiplomt.tdb -o botf-tdb
+
+For the data tables, all of them whole:
+
+    python3 botf_res_sample.py "C:\\Program Files\\MicroProse\\Trek" \\
+        --ext sst bst rst tec pst est bin wtf --all-whole -o botf-data
 """
 
 import argparse
@@ -42,8 +47,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("install", help="the game's install folder")
-    parser.add_argument("--ext", required=True, help="the extension to sample, e.g. tdb")
+    parser.add_argument("--ext", required=True, nargs="+", help="the extensions to sample, e.g. tdb")
     parser.add_argument("--whole", nargs="*", default=[], help="files to copy complete")
+    parser.add_argument("--all-whole", action="store_true", help="copy every matching file complete")
     parser.add_argument("--head", type=int, default=2048, help="bytes to keep of every file")
     parser.add_argument("--show", type=int, default=256, help="bytes to show in the report")
     parser.add_argument("-o", "--out", default="botf-sample", help="output folder")
@@ -52,19 +58,19 @@ def main():
     res = find(args.install, "stbof.res")
     if res is None:
         sys.exit(f"no stbof.res in {args.install}")
-    ext = "." + args.ext.lower().lstrip(".")
+    exts = tuple("." + e.lower().lstrip(".") for e in args.ext)
     whole = {w.lower() for w in args.whole}
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     report = []
     with zipfile.ZipFile(res) as z:
-        infos = sorted((i for i in z.infolist() if i.filename.lower().endswith(ext)),
+        infos = sorted((i for i in z.infolist() if i.filename.lower().endswith(exts)),
                        key=lambda i: i.filename.lower())
         for info in infos:
             data = z.read(info)
             name = info.filename.lower()
             (out / f"{name}.head.bin").write_bytes(data[:args.head])
-            if name in whole:
+            if args.all_whole or name in whole:
                 (out / name).write_bytes(data)
                 whole.discard(name)
             head = data[:args.show]
@@ -80,7 +86,7 @@ def main():
     for missing in sorted(whole):
         report.append(f"== {missing}: not in stbof.res")
     (out / "report.txt").write_text("\n".join(report) + "\n", encoding="utf-8")
-    print(f"{len(infos)} {ext} files; wrote {len(list(out.iterdir()))} files to {out.resolve()}")
+    print(f"{len(infos)} {' '.join(exts)} files; wrote {len(list(out.iterdir()))} files to {out.resolve()}")
     print("Please zip the folder and share it.")
 
 
