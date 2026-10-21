@@ -1,8 +1,11 @@
 # Star Trek: Birth of the Federation: `alt.res`
 
 Status: **understood**, except the 16-bit check value. Source: the first
-8 KB and last 4 KB of `alt.res` (`scripts/botf_sample.py`), then three
-runs of `scripts/botf_probe.py` on the whole file, October 2026.
+8 KB and last 4 KB of `alt.res` (`scripts/botf_sample.py`), then four
+runs of `scripts/botf_probe.py` on the whole file, October 2026. The last
+run decoded all 31 files by their directory entries: each gives exactly
+its decoded size, from exactly its compressed size, and starts with a
+valid TGA header.
 
 An archive of 31 TGA images, each LZSS-compressed. Not a zip, unlike
 `stbof.res`. All values little-endian.
@@ -27,6 +30,11 @@ u32 compressed size
 u32 flag            1 in every entry (compressed?)
 u32 check           under 65,536; how it's computed is still open
 ```
+
+The check isn't the sum of the bytes, the sum or XOR of 16-bit words,
+either half of a CRC-32 (each tried on the compressed and the decoded
+bytes), nor six common CRC-16s (tried on the first three files). A reader
+doesn't need it.
 
 The data isn't stored in directory order: the last entry, `rw.tga`, comes
 first at offset 24, then entries 0 to 29 in order. Each file's compressed
@@ -79,8 +87,12 @@ How it was worked out:
 
 Every file is an uncompressed TGA: type 2, no colour map, 800x600, 16-bit
 (`A1R5G5B5`), descriptor `0x01` (one attribute bit, rows from the bottom
-up). 960,018 bytes, or 960,044 for the 21 that end with a 26-byte TGA 2.0
-footer (`TRUEVISION-XFILE.`).
+up). 960,018 bytes, or 960,044 for the 21 with 26 more bytes after the pixels.
+In 20 of those they are a TGA 2.0 footer (`TRUEVISION-XFILE.`) whose
+extension and developer-area offsets hold garbage instead of 0, as if the
+tool that wrote them left them uninitialised; `h_fo.tga`'s 26 bytes have no
+signature. A reader should ignore anything after the pixels, as
+`common/image.cpp` already does.
 
 The names follow the race letters (`c`, `f`, `h`, `k`, `r`, see
 [res.md](res.md)):
@@ -90,7 +102,6 @@ The names follow the race letters (`c`, `f`, `h`, `k`, `r`, see
 | all five | `?icon800.tga`, `?l.tga`, `?w.tga`, `?_ss.tga`, `?_sbg01.tga` |
 | one race only | `c_oohq.tga`, `f_toc.tga`, `h_fchq.tga`, `h_fo.tga`, `k_gh.tga`, `r_tshq.tga` |
 
-Entry 0's name fell outside the bytes the probe printed; `c_sbg01.tga` is
-the one missing from the pattern. Presumably full-screen backgrounds in
+Entry 0 is `c_sbg01.tga`. Presumably full-screen backgrounds in
 each race's style, an "alternate" set to `stbof.res`'s (which screens use
 them is for the running game to show).
