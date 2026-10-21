@@ -202,7 +202,7 @@ void SoundViewer::redraw() {
 
     const std::string help = "Up/Down: select  Left/Right: archive  Space: play/stop  A: autoplay " +
                              std::string(autoPlay_ ? "on" : "off") + "  R: ADPCM rate " + std::to_string(rate_) +
-                             " Hz" + (mixer_ ? "" : "  (no audio device)") + "  Tab: images";
+                             " Hz" + (mixer_ ? "" : "  (no audio device)") + "  Tab: next page";
     font::drawText(screen_, 8, screen_.h - 16, help, dim);
     sys_.setWindowTitle("Reluva - Birth of the Federation - sounds " + std::to_string(current_ + 1) + "/" +
                         std::to_string(items_.size()));

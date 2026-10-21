@@ -9,8 +9,8 @@
 // docs/engines/botf.md.
 //
 // For now the engine is a data viewer: the images of stbof.res and alt.res,
-// and the sounds of sfx.snd, the language's speech archive and music.snd
-// (see viewers.h for the keys). Tab switches between them; Esc goes back to
+// stbof.res's fonts, and the sounds of sfx.snd, the language's speech
+// archive and music.snd (see viewers.h for the keys). Tab switches between them; Esc goes back to
 // the launcher.
 
 #include "engines/engine.h"
@@ -27,6 +27,7 @@ namespace reluva {
 namespace {
 
 using botf::AltResArchive;
+using botf::FontViewer;
 using botf::GameFiles;
 using botf::ImageViewer;
 using botf::SndArchive;
@@ -85,13 +86,20 @@ public:
         for (const auto& [name, snd] : sounds_)
             soundArchives.push_back({name, snd.get()});
         SoundViewer sounds(sys_, screen_, soundArchives, audioOut ? &mixer : nullptr);
+        FontViewer fonts(sys_, screen_, stbof_);
 
-        // Page 0 shows images, 1 sounds; Tab moves to the other if it has
-        // something to show.
-        int page = images.count() ? 0 : 1;
+        // Page 0 shows images, 1 fonts, 2 sounds; Tab moves to the next one
+        // that has something to show.
+        constexpr int kPages = 3;
+        const size_t counts[kPages] = {images.count(), fonts.count(), sounds.count()};
+        int page = 0;
+        while (counts[page] == 0 && page < kPages - 1)
+            ++page;
         auto activate = [&] {
             if (page == 0)
                 images.activate();
+            else if (page == 1)
+                fonts.activate();
             else
                 sounds.activate();
         };
@@ -106,21 +114,22 @@ public:
                 if (ev.key == key::Escape)
                     return Error::success();
                 if (ev.key == key::Tab) {
-                    const int other = 1 - page;
-                    if ((other == 0 ? images.count() : sounds.count()) == 0)
-                        continue;
-                    if (page == 1)
+                    if (page == 2)
                         sounds.deactivate();
-                    page = other;
+                    do
+                        page = (page + 1) % kPages;
+                    while (counts[page] == 0);
                     activate();
                     continue;
                 }
                 if (page == 0)
                     images.handleKey(ev.key);
+                else if (page == 1)
+                    fonts.handleKey(ev.key);
                 else
                     sounds.handleKey(ev.key);
             }
-            if (page == 1)
+            if (page == 2)
                 sounds.update(sys_.getMillis());
             sys_.updateScreen(screen_);
             sys_.delayMillis(10);

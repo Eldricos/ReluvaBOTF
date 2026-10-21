@@ -148,6 +148,8 @@ if(RELUVA_ENGINE_BOTF)
         src/engines/botf/snd_archive.cpp
         src/engines/botf/game_files.cpp
         src/engines/botf/image_viewer.cpp
+        src/engines/botf/font.cpp
+        src/engines/botf/font_viewer.cpp
         src/engines/botf/sound_viewer.cpp)
     target_compile_definitions(reluva_engines PUBLIC RELUVA_ENGINE_BOTF)
 endif()

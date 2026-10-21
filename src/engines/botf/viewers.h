@@ -8,6 +8,7 @@
 #include "common/audio/sound.h"
 #include "common/system.h"
 #include "common/types.h"
+#include "engines/botf/font.h"
 #include "engines/botf/snd_archive.h"
 
 #include <cstddef>
@@ -50,6 +51,27 @@ private:
     std::vector<ImageRef> images_;
     size_t current_ = 0;
     bool info_ = true;
+};
+
+// Shows the .fnt fonts of an archive (stbof.res): the glyph sheet, and
+// sample text drawn with the font.
+//   Left/Right: previous/next font   +/-: the sample text's size
+class FontViewer {
+public:
+    FontViewer(System& sys, Surface& screen, const Archive& archive);
+    size_t count() const { return names_.size(); }
+    void activate();
+    void handleKey(uint32_t key);
+
+private:
+    void show();
+
+    System& sys_;
+    Surface& screen_;
+    const Archive& archive_;
+    std::vector<std::string> names_;
+    size_t current_ = 0;
+    int scale_ = 1;
 };
 
 // Plays the .snd archives' sounds: sfx.snd's effects, the language's speech,

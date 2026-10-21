@@ -14,10 +14,11 @@ stands.
 | `stbof.res` | read with `common/zip.cpp` |
 | `alt.res` | `AltResArchive` (`alt_res.cpp`): directory and LZSS ([alt-res.md](../formats/botf/alt-res.md)); all 31 images checked in the viewer, after correcting the window start |
 | `.snd` archives | `SndArchive` (`snd_archive.cpp`): both layouts; WAV entries through `common/audio/wav.cpp`, bare IMA ADPCM through its `decodeImaAdpcm` at 22,050 Hz (confirmed by ear) ([snd.md](../formats/botf/snd.md)) |
-| Viewer | Images (`stbof.res` and `alt.res` TGAs, full-screen ones at their own size) and Sounds (effects, speech, music pieces) pages; keys in the README |
+| Fonts | `Font` (`font.cpp`): the 120 glyphs of every `.fnt`, found by their frames, with their advances; drawing UTF-8 text ([fnt.md](../formats/botf/fnt.md)) |
+| Viewer | Images (`stbof.res` and `alt.res` TGAs, full-screen ones at their own size), Fonts (glyph sheet and sample text) and Sounds (effects, speech, music pieces) pages; keys in the README |
 | Tools | `reluva-tool alt-list` (list and extract `alt.res`), `snd-list` (list and decode a `.snd` archive to WAV) |
-| Tests | `tests/test_botf.cpp`: LZSS (with bytes from the retail file's start), `alt.res`, both `.snd` layouts, ADPCM without a WAV header, `Stbof.ini` and file finding |
-| Not yet | `.gif` textures (stb_image is built without GIF), fonts, text and data tables, models, movies, saves, the game itself |
+| Tests | `tests/test_botf.cpp`: LZSS (with bytes from the retail file's start), `alt.res`, fonts, both `.snd` layouts, ADPCM without a WAV header, `Stbof.ini` and file finding |
+| Not yet | `.gif` textures (stb_image is built without GIF), how the game colours text, text and data tables, models, movies, saves, the game itself |
 
 Sources (October 2026): `trek.exe` and `Trek.icd` from an English retail
 install, directory listings of that install and of the CD, and
@@ -122,7 +123,7 @@ what the data can't show.
 2. **Archives.** Done: `stbof.res`, `alt.res` and the `.snd` archives (see
    the table above).
 3. **Data viewer**, as for New Worlds. Done: interface TGAs, `alt.res`
-   pictures, sounds, speech and music. Next: fonts (`.fnt`), text tables (`.tdb`), then the
+   pictures, fonts, sounds, speech and music. Next: text tables (`.tdb`), then the
    binary tables (`.sst`, `.bst`, `.rst`, `.tec`, `.pst`, `.bin`). Each format
    written up under `docs/formats/botf/` with how it was worked out.
 4. **Models.** `.hob` with their `.gif` textures, on the Models page with

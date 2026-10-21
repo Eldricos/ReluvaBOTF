@@ -115,7 +115,7 @@ void ImageViewer::show(size_t index) {
     }
     sys_.setWindowTitle("Reluva - Birth of the Federation - images " + std::to_string(index + 1) + "/" +
                         std::to_string(images_.size()) + ": " + ref.name +
-                        " (Left/Right, S: next archive, I: info, Tab: sounds)");
+                        " (Left/Right, S: next archive, I: info, Tab: next page)");
 }
 
 } // namespace reluva::botf
