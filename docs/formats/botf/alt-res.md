@@ -1,35 +1,54 @@
 # Star Trek: Birth of the Federation: `alt.res`
 
-Status: **compression understood; not every image's header read yet.**
-Source: the first 8 KB and last 4 KB of `alt.res` (`scripts/botf_sample.py`),
-then the whole file decompressed by `scripts/botf_probe.py`, October 2026.
+Status: **understood**, except the 16-bit check value. Source: the first
+8 KB and last 4 KB of `alt.res` (`scripts/botf_sample.py`), then three
+runs of `scripts/botf_probe.py` on the whole file, October 2026.
 
-Not a zip, unlike `stbof.res`. All values little-endian.
+An archive of 31 TGA images, each LZSS-compressed. Not a zip, unlike
+`stbof.res`. All values little-endian.
 
 ```
-offset 0   char[16] name     "alt.res", zero-padded
-offset 16  u32                12,982,522: the compressed stream's length plus 4?
-offset 20  u32                31
-offset 24  LZSS stream
-           zero padding to the end of the file (at least the last 4 KB)
+offset 0   char[16] "alt.res", zero-padded
+offset 16  u32      directory offset (12,982,522)
+offset 20  u32      number of files (31)
+offset 24  the files' compressed data, one after the other
+           directory: 40 bytes per file
+           zero padding to the end of the file (8,774 bytes)
 ```
 
-The file is 12,992,536 bytes, so 9,994 bytes follow `20 + 12,982,522`;
-656 of them aren't zero, so the stream may run into them.
+A directory entry:
+
+```
+char[16] name       zero-padded, e.g. "cicon800.tga"
+u32 offset          of the compressed data, from the start of the file
+u32 index           0 to 30, the entry's own number
+u32 decoded size    960,018 or 960,044
+u32 compressed size
+u32 flag            1 in every entry (compressed?)
+u32 check           under 65,536; how it's computed is still open
+```
+
+The data isn't stored in directory order: the last entry, `rw.tga`, comes
+first at offset 24, then entries 0 to 29 in order. Each file's compressed
+data ends exactly where the next one's begins, and the last ends at the
+directory.
 
 ## Compression
 
 A variant of the common 1989 LZSS (Haruhiko Okumura's), with the reference
 bytes in a different order:
 
-- A 4,096-byte window, all zeros at the start; writing starts at `0xFEE`
-  (4,096 - 18).
+- Each file is compressed on its own: a 4,096-byte window, all zeros at
+  the start, writing from `0xFEE` (4,096 - 18), and a new flag byte.
 - A flag byte describes the next eight items, low bit first. Bit 1: one
   literal byte. Bit 0: a two-byte reference `a b`:
   - length = `(a >> 4) + 2` (2 to 17 bytes)
   - window position = `((a & 0x0F) << 8) | b`
 - Every byte output, literal or copied, is also written to the window at
   the current position, which then advances (wrapping at 4,096).
+- A file ends when its decoded size (from the directory) is reached; any
+  flag bits left in the last flag byte are unused, and the next file's
+  data starts at the next byte.
 
 How it was worked out:
 
@@ -49,42 +68,29 @@ How it was worked out:
 - Decoded this way, the first 8 KB give a valid TGA header and 37 rows of
   pixels, mostly black with scattered single grey and coloured pixels (a
   starfield), every pixel aligned on 2 bytes.
+- Decoding the whole file as one stream broke every image after the first:
+  headers with garbage colour-map fields, and copies of old data where
+  zeros belong. That is what a decoder does if it keeps the window and the
+  flag bits across a file boundary, which led to decoding file by file:
+  the second file's header then decodes cleanly, and the compressed data
+  ends where the directory says the next file starts.
 
 ## Contents
 
-Decompressing everything from offset 24 to the end of the file gives
-29,773,558 bytes. 31 full-screen images of 960,018 bytes each make
-29,760,558, so the count at offset 20 is the number of images, and 13,000
-bytes are something else: headers or footers the plain images don't have,
-or the padding at the end decoded as if it were data.
-
-The images are uncompressed TGAs: type 2, no colour map, 800x600, 16-bit
+Every file is an uncompressed TGA: type 2, no colour map, 800x600, 16-bit
 (`A1R5G5B5`), descriptor `0x01` (one attribute bit, rows from the bottom
-up), 960,018 bytes. Presumably full-screen backgrounds (an "alternate" set
-to `stbof.res`'s).
+up). 960,018 bytes, or 960,044 for the 21 that end with a 26-byte TGA 2.0
+footer (`TRUEVISION-XFILE.`).
 
-Reading the whole stream as one, only some images decode cleanly. The
-second probe run found:
+The names follow the race letters (`c`, `f`, `h`, `k`, `r`, see
+[res.md](res.md)):
 
-- A plain TGA header only at 0. Headers seen by the first run further on
-  (at 2,880,188, 3,840,206, 10,560,198) failed the stricter second check,
-  so their colour-map fields hold garbage.
-- 44 `TRUEVISION-XFILE.` footer signatures, each after 8 garbage bytes
-  where a real footer has two offsets (usually 0), and in places the same
-  footer repeated every 2,744 or 3,566 bytes.
-- The 13,000 extra bytes match decoding the 9,994 bytes after the stream
-  as if they were compressed.
+| Per race | Names |
+|---|---|
+| all five | `?icon800.tga`, `?l.tga`, `?w.tga`, `?_ss.tga`, `?_sbg01.tga` |
+| one race only | `c_oohq.tga`, `f_toc.tga`, `h_fchq.tga`, `h_fo.tga`, `k_gh.tga`, `r_tshq.tga` |
 
-The likely explanation: **each image is compressed on its own**, starting
-with an empty window and a new flag byte, and the 31 streams are stored one
-after the other. A decoder that carries on across a boundary uses leftover
-flag bits on the next image's bytes and copies the previous image's data
-where the encoder meant zeros, which is exactly what breaks headers and
-footers, and copies old data around. So the images are probably TGA 2.0
-files with a footer (and maybe an extension area), and their sizes are
-not all 960,018 bytes.
-
-`scripts/botf_probe.py` now reads the stream image by image three ways
-(new window and flag byte per image, only one of the two, as in a test
-built the same way) and shows the nonzero bytes after the stream, which
-may be a table of names: 656 of the 9,994 bytes there aren't zero.
+Entry 0's name fell outside the bytes the probe printed; `c_sbg01.tga` is
+the one missing from the pattern. Presumably full-screen backgrounds in
+each race's style, an "alternate" set to `stbof.res`'s (which screens use
+them is for the running game to show).

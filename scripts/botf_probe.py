@@ -6,9 +6,9 @@
 Reads (never writes) Star Trek: Birth of the Federation's install folder,
 and optionally the CD, and writes a text report about:
 
-- alt.res: decompresses the LZSS stream (docs/formats/botf/alt-res.md) file
-  by file in three ways, lists the TGA files found, and shows the bytes
-  after the stream
+- alt.res: reads its directory, decompresses every file
+  (docs/formats/botf/alt-res.md), checks the sizes and tries to identify
+  the 16-bit check value
 - sfx.snd, english.snd, music.snd: every directory entry, with the first
   bytes of each sound (docs/formats/botf/snd.md)
 - music.tbl from stbof.res: its first lines
@@ -26,6 +26,7 @@ import re
 import struct
 import sys
 import time
+import zlib
 import zipfile
 from pathlib import Path
 
@@ -122,75 +123,104 @@ class Lzss:
         return True
 
 
-def decode_files(data, count, reset_window, new_flags, report, label):
-    """Decode `count` TGA files one after another from offset 24, resetting the
-    window and/or starting a new flag byte at each file. Returns the files."""
-    lz = Lzss(data, 24)
-    files = []
-    for n in range(count):
-        if reset_window:
-            lz.reset_window()
-        if new_flags:
-            lz.new_flags()
-        start_in = lz.pos
-        out = bytearray()
-        if not lz.read(18, out):
-            report.append(f"   [{label}] file {n}: input ran out at {lz.pos:,}")
-            break
-        h = tga_header(out, 0)
-        if not h or not h[4]:
-            report.append(f"   [{label}] file {n} at input {start_in:,}: no TGA header: "
-                          f"{out.hex(' ')}")
-            break
-        lz.read(h[4] - 18, out)
-        files.append((start_in, out, h))
-    report.append(f"   [{label}] {len(files)} files read; input position after the "
-                  f"last: {lz.pos:,}")
-    return files, lz.pos
+def checksums(data):
+    """Candidate 16-bit checks of `data`, by name."""
+    out = {
+        "sum of bytes": sum(data) & 0xFFFF,
+        "xor of 16-bit words": 0,
+        "sum of 16-bit words": 0,
+        "crc32 low 16": zlib.crc32(data) & 0xFFFF,
+        "crc32 high 16": zlib.crc32(data) >> 16,
+    }
+    words = memoryview(bytes(data[:len(data) & ~1])).cast("H")
+    x = 0
+    for w in words:
+        x ^= w
+    out["xor of 16-bit words"] = x
+    out["sum of 16-bit words"] = sum(words) & 0xFFFF
+    return out
+
+
+def crc16s(data):
+    """The common table-free CRC-16s; slow in Python, so used on small inputs."""
+    def crc(poly, init, reflect, xorout):
+        c = init
+        if reflect:
+            for b in data:
+                c ^= b
+                for _ in range(8):
+                    c = (c >> 1) ^ poly if c & 1 else c >> 1
+        else:
+            for b in data:
+                c ^= b << 8
+                for _ in range(8):
+                    c = ((c << 1) ^ poly) & 0xFFFF if c & 0x8000 else (c << 1) & 0xFFFF
+        return c ^ xorout
+    return {
+        "crc16/arc": crc(0xA001, 0, True, 0),
+        "crc16/modbus": crc(0xA001, 0xFFFF, True, 0),
+        "crc16/xmodem": crc(0x1021, 0, False, 0),
+        "crc16/ccitt-false": crc(0x1021, 0xFFFF, False, 0),
+        "crc16/kermit": crc(0x8408, 0, True, 0),
+        "crc16/x25": crc(0x8408, 0xFFFF, True, 0xFFFF),
+    }
 
 
 def probe_alt(path, report):
     data = path.read_bytes()
     report.append(f"== {path.name}: {len(data):,} bytes")
-    name = data[:16].split(b"\0")[0].decode("ascii", "replace")
-    f1, f2 = struct.unpack_from("<II", data, 16)
-    report.append(f"   header: name {name!r}, dword@16 {f1:,} ({f1:#x}), dword@20 {f2:,} ({f2:#x})")
+    dir_off, count = struct.unpack_from("<II", data, 16)
+    report.append(f"   directory at {dir_off:,}, {count} entries")
+    entries = []
+    for n in range(count):
+        rec = data[dir_off + 40 * n:dir_off + 40 * (n + 1)]
+        name = rec[:16].split(b"\0")[0].decode("ascii", "replace")
+        entries.append((name,) + struct.unpack_from("<6I", rec, 16))
+    rest = data[dir_off + 40 * count:]
+    report.append(f"   after the directory: {len(rest):,} bytes, "
+                  f"{sum(1 for b in rest if b)} nonzero")
 
-    # The bytes after the stream: where the nonzero ones are.
-    tail_start = 20 + f1
-    tail = data[tail_start:]
-    nz = [i for i, b in enumerate(tail) if b]
-    report.append(f"   after {tail_start:,}: {len(tail):,} bytes, {len(nz):,} nonzero")
-    if nz:
-        lo = max(0, nz[0] - 16)
-        hi = min(len(tail), nz[-1] + 17)
-        report.append(f"   nonzero bytes from {tail_start + nz[0]:,} to {tail_start + nz[-1]:,}:")
-        for k in range(lo - lo % 16, hi, 16):
-            row = tail[k:k + 16]
-            text = "".join(chr(b) if 32 <= b < 127 else "." for b in row)
-            report.append(f"   {tail_start + k:>11,}  {row.hex(' '):47}  {text}")
-
-    # Which way of reading the stream gives 31 TGA files? Each variant
-    # stops at the first file without a valid header.
     t = time.time()
-    best = None
-    for reset_window, new_flags in [(True, True), (True, False), (False, True)]:
-        label = (f"window {'reset' if reset_window else 'kept'}, "
-                 f"flags {'new' if new_flags else 'kept'}")
-        files, end = decode_files(data, f2, reset_window, new_flags, report, label)
-        if best is None or len(files) > len(best[0]):
-            best = (files, end, label)
-    report.append(f"   ({time.time() - t:.0f} s)")
-
-    files, end, label = best
-    report.append(f"   files with [{label}]:")
-    for n, (start_in, out, h) in enumerate(files):
-        sig = out.find(b"TRUEVISION-XFILE")
-        report.append(f"   {n:3}: input {start_in:>11,}  {describe_tga(h)}"
-                      + (f"; footer signature at +{sig:,}" if sig >= 0 else ""))
-        if h[6]:
-            report.append(f"        id: {bytes(out[18:18 + h[6]])!r}")
-    report.append(f"   stream ends at {end:,}; dword@16 + 20 = {tail_start:,}")
+    problems = 0
+    matches = {}
+    for n, (name, off, index, usize, csize, flag, check) in enumerate(entries):
+        lz = Lzss(data, off)
+        out = bytearray()
+        complete = lz.read(usize, out)
+        used = lz.pos - off
+        h = tga_header(out, 0)
+        footer = out.find(b"TRUEVISION-XFILE")
+        notes = []
+        if index != n:
+            notes.append(f"index {index}")
+        if not complete or len(out) != usize:
+            notes.append(f"decoded {len(out):,}")
+        if used != csize:
+            notes.append(f"used {used:,} compressed bytes")
+        if footer >= 0:
+            ext, dev = struct.unpack_from("<II", out, footer - 8)
+            notes.append(f"footer at +{footer - 8:,} (extension {ext}, developer {dev})")
+        problems += bool(index != n or len(out) != usize or used != csize)
+        report.append(f"   {n:3} {name:16} offset {off:>11,} csize {csize:>9,} usize {usize:>9,} "
+                      f"flag {flag} check {check:#06x}  "
+                      + (describe_tga(h) if h else f"no TGA header: {out[:18].hex(' ')}")
+                      + ("; " + "; ".join(notes) if notes else ""))
+        # Which candidate check gives `check`? Compressed and decoded bytes.
+        cands = {}
+        for what, buf in (("compressed", data[off:off + csize]), ("decoded", out)):
+            for k, v in checksums(buf).items():
+                cands[f"{k} of {what}"] = v
+            if n < 3:
+                for k, v in crc16s(buf).items():
+                    cands[f"{k} of {what}"] = v
+        for k, v in cands.items():
+            if v == check:
+                matches[k] = matches.get(k, 0) + 1
+    report.append(f"   entries that don't decode to their sizes: {problems}; "
+                  f"{time.time() - t:.0f} s")
+    report.append("   checks matching the stored value (name: entries; CRC-16s tried on "
+                  "the first 3 only): "
+                  + (", ".join(f"{k}: {v}" for k, v in sorted(matches.items())) or "none"))
 
 
 def ima_header_ok(b, channels):
