@@ -63,10 +63,28 @@ The images are uncompressed TGAs: type 2, no colour map, 800x600, 16-bit
 up), 960,018 bytes. Presumably full-screen backgrounds (an "alternate" set
 to `stbof.res`'s).
 
-Not all of them are that simple. A first pass, which only recognised plain
-type-2 headers without an image id, found such headers at 0, 2,880,188,
-3,840,206 and 10,560,198 in the decompressed data. 2,880,188 is three images
-plus 134 bytes, so the second image takes 960,152 bytes, perhaps a 134-byte
-image id. A TGA 2.0 footer signature (`TRUEVISION-XFILE.`) follows the image
-at 10,560,198, so some images also have a footer. The probe now accepts any
-TGA header to list them all.
+Reading the whole stream as one, only some images decode cleanly. The
+second probe run found:
+
+- A plain TGA header only at 0. Headers seen by the first run further on
+  (at 2,880,188, 3,840,206, 10,560,198) failed the stricter second check,
+  so their colour-map fields hold garbage.
+- 44 `TRUEVISION-XFILE.` footer signatures, each after 8 garbage bytes
+  where a real footer has two offsets (usually 0), and in places the same
+  footer repeated every 2,744 or 3,566 bytes.
+- The 13,000 extra bytes match decoding the 9,994 bytes after the stream
+  as if they were compressed.
+
+The likely explanation: **each image is compressed on its own**, starting
+with an empty window and a new flag byte, and the 31 streams are stored one
+after the other. A decoder that carries on across a boundary uses leftover
+flag bits on the next image's bytes and copies the previous image's data
+where the encoder meant zeros, which is exactly what breaks headers and
+footers, and copies old data around. So the images are probably TGA 2.0
+files with a footer (and maybe an extension area), and their sizes are
+not all 960,018 bytes.
+
+`scripts/botf_probe.py` now reads the stream image by image three ways
+(new window and flag byte per image, only one of the two, as in a test
+built the same way) and shows the nonzero bytes after the stream, which
+may be a table of names: 656 of the 9,994 bytes there aren't zero.

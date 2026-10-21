@@ -6,8 +6,9 @@
 Reads (never writes) Star Trek: Birth of the Federation's install folder,
 and optionally the CD, and writes a text report about:
 
-- alt.res: decompresses the whole LZSS stream (docs/formats/botf/alt-res.md)
-  and lists what it holds: each TGA header found, and anything else
+- alt.res: decompresses the LZSS stream (docs/formats/botf/alt-res.md) file
+  by file in three ways, lists the TGA files found, and shows the bytes
+  after the stream
 - sfx.snd, english.snd, music.snd: every directory entry, with the first
   bytes of each sound (docs/formats/botf/snd.md)
 - music.tbl from stbof.res: its first lines
@@ -17,7 +18,7 @@ Only standard-library Python 3.8+ is needed:
 
     python3 botf_probe.py "C:\\Program Files\\MicroProse\\Trek" --cd D:\\ -o botf-probe.txt
 
-Decompressing alt.res takes a minute or two.
+Decompressing alt.res takes up to a few minutes.
 """
 
 import argparse
@@ -37,44 +38,6 @@ def find(folder, name):
         if p.name.lower() == name.lower() and p.is_file():
             return p
     return None
-
-
-def lzss_decompress(src, start, end):
-    """The LZSS variant alt.res uses: 4 KB window starting at 0xfee, zero-filled.
-
-    A flag byte gives the kind of the next 8 items, low bit first: 1 = a literal
-    byte, 0 = a two-byte reference ab cd = length a + 2, window position bcd.
-    """
-    window = bytearray(4096)
-    r = 0xFEE
-    out = bytearray()
-    i = start
-    flags = 0
-    while i < end:
-        flags >>= 1
-        if not flags & 0x100:
-            flags = src[i] | 0xFF00
-            i += 1
-            if i >= end:
-                break
-        if flags & 1:
-            c = src[i]
-            i += 1
-            out.append(c)
-            window[r] = c
-            r = (r + 1) & 0xFFF
-        else:
-            if i + 1 >= end:
-                break
-            a, b = src[i], src[i + 1]
-            i += 2
-            pos = ((a & 0x0F) << 8) | b
-            for k in range(((a >> 4) & 0x0F) + 2):
-                c = window[(pos + k) & 0xFFF]
-                out.append(c)
-                window[r] = c
-                r = (r + 1) & 0xFFF
-    return out, i
 
 
 def tga_header(data, off):
@@ -109,61 +72,125 @@ def describe_tga(h):
             + (f"{size:,} bytes" if size else "RLE"))
 
 
+class Lzss:
+    """alt.res's LZSS decoder, with its state kept between calls so the
+    stream can be read file by file (see decode_files)."""
+
+    def __init__(self, src, pos):
+        self.src = src
+        self.pos = pos
+        self.flags = 0
+        self.reset_window()
+
+    def reset_window(self):
+        self.window = bytearray(4096)
+        self.r = 0xFEE
+
+    def new_flags(self):
+        self.flags = 0
+
+    def read(self, count, out):
+        """Append `count` bytes to `out`; False if the input ran out first."""
+        src, window = self.src, self.window
+        want = len(out) + count
+        while len(out) < want:
+            self.flags >>= 1
+            if not self.flags & 0x100:
+                if self.pos >= len(src):
+                    return False
+                self.flags = src[self.pos] | 0xFF00
+                self.pos += 1
+            if self.flags & 1:
+                if self.pos >= len(src):
+                    return False
+                c = src[self.pos]
+                self.pos += 1
+                out.append(c)
+                window[self.r] = c
+                self.r = (self.r + 1) & 0xFFF
+            else:
+                if self.pos + 1 >= len(src):
+                    return False
+                a, b = src[self.pos], src[self.pos + 1]
+                self.pos += 2
+                at = ((a & 0x0F) << 8) | b
+                for k in range(((a >> 4) & 0x0F) + 2):
+                    c = window[(at + k) & 0xFFF]
+                    out.append(c)
+                    window[self.r] = c
+                    self.r = (self.r + 1) & 0xFFF
+        return True
+
+
+def decode_files(data, count, reset_window, new_flags, report, label):
+    """Decode `count` TGA files one after another from offset 24, resetting the
+    window and/or starting a new flag byte at each file. Returns the files."""
+    lz = Lzss(data, 24)
+    files = []
+    for n in range(count):
+        if reset_window:
+            lz.reset_window()
+        if new_flags:
+            lz.new_flags()
+        start_in = lz.pos
+        out = bytearray()
+        if not lz.read(18, out):
+            report.append(f"   [{label}] file {n}: input ran out at {lz.pos:,}")
+            break
+        h = tga_header(out, 0)
+        if not h or not h[4]:
+            report.append(f"   [{label}] file {n} at input {start_in:,}: no TGA header: "
+                          f"{out.hex(' ')}")
+            break
+        lz.read(h[4] - 18, out)
+        files.append((start_in, out, h))
+    report.append(f"   [{label}] {len(files)} files read; input position after the "
+                  f"last: {lz.pos:,}")
+    return files, lz.pos
+
+
 def probe_alt(path, report):
     data = path.read_bytes()
     report.append(f"== {path.name}: {len(data):,} bytes")
     name = data[:16].split(b"\0")[0].decode("ascii", "replace")
     f1, f2 = struct.unpack_from("<II", data, 16)
     report.append(f"   header: name {name!r}, dword@16 {f1:,} ({f1:#x}), dword@20 {f2:,} ({f2:#x})")
-    report.append(f"   bytes after dword@16's end ({20 + f1:,}): "
-                  f"{len(data) - 20 - f1:,}, nonzero among them: "
-                  f"{sum(1 for b in data[20 + f1:] if b):,}")
+
+    # The bytes after the stream: where the nonzero ones are.
+    tail_start = 20 + f1
+    tail = data[tail_start:]
+    nz = [i for i, b in enumerate(tail) if b]
+    report.append(f"   after {tail_start:,}: {len(tail):,} bytes, {len(nz):,} nonzero")
+    if nz:
+        lo = max(0, nz[0] - 16)
+        hi = min(len(tail), nz[-1] + 17)
+        report.append(f"   nonzero bytes from {tail_start + nz[0]:,} to {tail_start + nz[-1]:,}:")
+        for k in range(lo - lo % 16, hi, 16):
+            row = tail[k:k + 16]
+            text = "".join(chr(b) if 32 <= b < 127 else "." for b in row)
+            report.append(f"   {tail_start + k:>11,}  {row.hex(' '):47}  {text}")
+
+    # Which way of reading the stream gives 31 TGA files? Each variant
+    # stops at the first file without a valid header.
     t = time.time()
-    out, used = lzss_decompress(data, 24, len(data))
-    report.append(f"   decompressed from offset 24: {len(out):,} bytes, input used up to "
-                  f"{used:,}, {time.time() - t:.0f} s")
+    best = None
+    for reset_window, new_flags in [(True, True), (True, False), (False, True)]:
+        label = (f"window {'reset' if reset_window else 'kept'}, "
+                 f"flags {'new' if new_flags else 'kept'}")
+        files, end = decode_files(data, f2, reset_window, new_flags, report, label)
+        if best is None or len(files) > len(best[0]):
+            best = (files, end, label)
+    report.append(f"   ({time.time() - t:.0f} s)")
 
-    sig = b"TRUEVISION-XFILE"
-    pos = out.find(sig)
-    while pos >= 0:
-        report.append(f"   TGA 2.0 footer signature at {pos:,} (footer from {pos - 8:,}): "
-                      f"{out[pos - 8:pos + 18].hex(' ')}")
-        pos = out.find(sig, pos + 1)
-
-    # Every plausible TGA header, then the gaps between one image's end and
-    # the next header. A header can't start inside the previous image.
-    found = []
-    candidate = re.compile(rb"[\x00-\xff][\x00\x01][\x01\x02\x03\x09\x0a\x0b]", re.DOTALL)
-    off = 0
-    while True:
-        m = candidate.search(out, off)
-        if not m:
-            break
-        p = m.start()
-        h = tga_header(out, p)
-        if h:
-            found.append((p, h))
-            if len(found) >= 400:
-                report.append("   stopped after 400 headers")
-                break
-            off = p + (h[4] or 18)
-            continue
-        off = p + 1
-    report.append(f"   plausible TGA headers: {len(found)}")
-    prev_end = 0
-    for p, h in found:
-        if p != prev_end:
-            gap = out[prev_end:p]
-            report.append(f"   {prev_end:>11,}: {p - prev_end:,} bytes before the next header, "
-                          f"{sum(1 for b in gap if b):,} nonzero; first 64: {gap[:64].hex(' ')}")
-            if len(gap) > 64:
-                report.append(f"                last 64: {gap[-64:].hex(' ')}")
-        report.append(f"   {p:>11,}: {describe_tga(h)}; header {out[p:p + 18].hex(' ')}")
+    files, end, label = best
+    report.append(f"   files with [{label}]:")
+    for n, (start_in, out, h) in enumerate(files):
+        sig = out.find(b"TRUEVISION-XFILE")
+        report.append(f"   {n:3}: input {start_in:>11,}  {describe_tga(h)}"
+                      + (f"; footer signature at +{sig:,}" if sig >= 0 else ""))
         if h[6]:
-            report.append(f"                id: {bytes(out[p + 18:p + 18 + h[6]])!r}")
-        prev_end = p + (h[4] or 18)
-    report.append(f"   {prev_end:>11,}: {len(out) - prev_end:,} bytes to the end; "
-                  f"last 64: {out[-64:].hex(' ')}")
+            report.append(f"        id: {bytes(out[18:18 + h[6]])!r}")
+    report.append(f"   stream ends at {end:,}; dword@16 + 20 = {tail_start:,}")
 
 
 def ima_header_ok(b, channels):
