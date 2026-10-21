@@ -21,7 +21,7 @@ uint32_t fieldBytes(const Field& f) {
     case F::Text: return f.size;
     case F::U8: return f.size;
     case F::U16: return 2 * f.size;
-    case F::U32: return 4;
+    case F::U32: return 4 * f.size;
     case F::F32: return 4;
     case F::F64: return 8;
     }
@@ -79,6 +79,29 @@ const std::vector<TableLayout>& tableLayouts() {
           {"second bonus (6 values)", 146, F::U16, 6},
           {"description", 172, F::U32}},
          0, 8},
+        {"planet.pst", nullptr, C::U16AtStart, 260, 76,
+         {{"name", 0, F::Text, 40},
+          {"animation", 40, F::Text, 12},
+          {"number", 54, F::U16},
+          {"size (0 small, 1 medium, 2 large)", 56, F::U16},
+          {"type (environ.est)", 72, F::U8},
+          {"atmosphere (environ.est)", 73, F::U8}},
+         0, -1},
+        {"environ.est", nullptr, C::U16AtStart, 130, 50, {{"name", 0, F::Text, 40}, {"number", 40, F::U16}}, 0, -1},
+        {"starname.bin", nullptr, C::U32AtStart, 4, 24, {{"name", 0, F::Text, 20}, {"name's length + 1", 20, F::U32}},
+         0, -1},
+        {"shipname.bin", nullptr, C::FileSize, 252, 44, {{"group", 0, F::U16}, {"name", 4, F::Text, 40}}, 1, -1},
+        {"shiptech.sst", nullptr, C::FileSize, 0, 16,
+         {{"race", 0, F::U16},
+          {"ship (shiplist.sst)", 4, F::U16},
+          {"upgrades from (65535: none)", 6, F::U16},
+          {"technology levels needed", 8, F::U8, 6}},
+         1, -1},
+        {"shiprace.sst", nullptr, C::FileSize, 0, 4, {{"first ship (4294967295: none)", 0, F::U32}}, 0, -1},
+        {"planspac.bin", nullptr, C::FileSize, 0, 40,
+         {{"planet type + 256 x size", 0, F::U32}, {"values (maximum population?)", 4, F::U32, 9}}, 0, -1},
+        {"planboni.bin", nullptr, C::FileSize, 0, 40,
+         {{"planet type + 256 x size", 0, F::U32}, {"bonus values", 4, F::U32, 9}}, 0, -1},
     };
     return layouts;
 }
@@ -132,7 +155,12 @@ std::string DataTable::value(size_t r, const Field& f) const {
             s += (i ? " " : "") + std::to_string(p[2 * i] | p[2 * i + 1] << 8);
         return s;
     }
-    case F::U32: return std::to_string(u32(p));
+    case F::U32: {
+        std::string s;
+        for (uint32_t i = 0; i < f.size; ++i)
+            s += (i ? " " : "") + std::to_string(u32(p + 4 * i));
+        return s;
+    }
     case F::F32: {
         float v;
         std::memcpy(&v, p, 4);

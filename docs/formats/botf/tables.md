@@ -1,7 +1,8 @@
 # Star Trek: Birth of the Federation: data tables
 
 Status: **record layouts known for races, ships, technologies, research
-fields and buildings**; their names, pictures, models and descriptions read;
+fields, buildings, planets, environments, star and ship names, ships'
+requirements and races, and planet values**; their names, pictures, models and descriptions read;
 ships' combat values and costs, and buildings' costs, maintenance and
 output, matched against the game's screens. Many numeric fields still to
 work out. The other tables not started.
@@ -160,14 +161,107 @@ industry), Databank (16 to 26 intelligence) and University (17 to 22
 research): output 31, 20, 26, 22 and population maintenance 10 each. Their
 upgrade prices aren't the build cost at 120.
 
+## `shiptech.sst`: what ships need
+
+No header: 125 records of 16 bytes, one per ship class in `shiplist.sst`'s order.
+
+```
+0    u16       race                  0-4 the major races; 36 for the Tarellian vessel (a monster)
+4    u16       ship                  its number in shiplist.sst
+6    u16       upgrades from         the ship it replaces (Colony Ship II: 2, Colony Ship); 65535 for none
+8    u8[6]     technology levels     needed in six research fields (Strike Cruiser 2 3 4 3 2 4; colony ships 1 1 1 1 1 1)
+```
+
+## `shiprace.sst`: each race's ships
+
+35 `u32`, one per race in `race.rst`'s order: the number of the race's first
+ship in `shiplist.sst` (Cardassians 0, Federation 20, Ferengi 45, Klingons
+65, Romulans 85, then 105 to 114 for the minor races that have one), or
+4294967295 for a race without ships.
+
+## `shipname.bin`: ship names
+
+```
+0     u32[62]  how many names in each group
+248   u32      252: where the names start
+252   1,418 records of 44 bytes:
+        u16       group               0-61
+        u16       65535 (27 in one record)
+        char[40]  name                "USS Galaxy"
+```
+
+Groups of 30 names (6 or 7 for some, 1 for a transport, outpost or
+starbase), by race prefix: 1-11 Federation (`USS`), 12-21 Klingon (`IKC`),
+22-31 Romulan (`RNS`), 32-39 Ferengi (`FMS`), 40-49 Cardassian (`CDS`), 50
+outpost, 51 starbase, 52-61 others. Group 0 is "UPN Invalid". Which group a
+ship class takes its names from isn't known yet.
+
+## `starname.bin`: star names
+
+A `u32` count (297), then 24-byte records: the name (`char[20]`, up to 12
+letters: "Exo", "Ultima Thule") and its length + 1 (`u32` at 20).
+
+## `environ.est`: planet types and atmospheres
+
+```
+0     u16       count (13)
+2     f32[13]   how common each is: 0.19 0.22 0.14 0.10 0.05 0.07 0.04 0.19 for the 8 planet types, 0 for the atmospheres; they add up to 1
+130   13 records of 50 bytes: name (char[40]), number (u16 at 40), then values not worked out
+```
+
+0 arctic, 1 barren, 2 desert, 3 gas giant, 4 jungle, 5 oceanic, 6 terran, 7
+volcanic; 8 methane, 9 none, 10 oxygen rich, 11 sulfuric, 12 thin oxygen.
+
+## `planet.pst`: planets
+
+A `u16` count (1,117) and leftovers to 260, then 76-byte records:
+
+```
+0    char[40]  name                  "1", "2" ... or "Mars"
+40   char[12]  animation             "aros.ani": its letters spell type, atmosphere and size
+54   u16       number                different in every record
+56   u16       size                  0 small, 1 medium, 2 large (the animations' s, m, l)
+62   u16[3]    ?                     each 0, 310 or 620
+72   u8        type                  environ.est's 0-7
+73   u8        atmosphere            environ.est's 8-12
+```
+
+The animation names agree with the type, atmosphere and size in every
+record but those of the Sol system's own planets (Mercury, Earth, Mars,
+Jupiter, Saturn, Uranus, Neptune, Pluto have their own animations):
+`a`/`b`/`d`/`g`/`j`/`o`/`t`/`v` for the type, `r` (oxygen rich), `t` (thin
+oxygen) ... for the atmosphere, then `s`, `m`, `l`.
+
+## `planspac.bin` and `planboni.bin`: values per planet type and size
+
+Each 21 records of ten `u32`: a key, planet type + 256 x size (the 7 types
+other than gas giants, 3 sizes each), and 9 values.
+
+- `planspac.bin` ("planet space"?): 25 to 140, growing with the size and
+  highest for terran and jungle worlds (terran large: 120 125 130 130 130
+  130 135 135 140): maximum population, presumably, for 9 conditions not
+  known yet.
+- `planboni.bin`: 0 for arctic and barren worlds; 0, 5, 10, 15, 20 in a
+  pattern repeating every 3 values for desert and volcanic worlds; 0-10,
+  changing every 3 values, for jungle, oceanic and terran ones. Bonuses,
+  presumably (energy and food?).
+
+## `edifbnft.bst`: building benefits
+
+45 wordings for building output (" Food", "% food", " Energy", "% total
+credits", " Ship experience", " Anti-Ship Defenses" ...): a `u32` (669: where
+the offset table starts), the zero-terminated strings, then 45 `u32`
+offsets of the strings.
+
 ## Not worked out yet
 
-| Files | Size | Notes |
+| Files | Size | What's known |
 |---|---|---|
-| `shiptech.sst`, `shiprace.sst` | 2,000, 140 | ship requirements and races, no text |
-| `edifbnft.bst` | 849 | benefit names ("Food", "% food", "Energy" ...) |
-| `racetech.tec` | 36,400 | no text |
-| `planet.pst` | 85,152 | planets: animation names (`aros.ani`) and file paths |
-| `environ.est` | 780 | planet environments (`arctic`, `barren` ...) |
-| 18 `.bin` | 112 to 62,644 | names (`shipname.bin`, `starname.bin`), rules (`morale.bin`, `ppgrowth.bin`, `planboni.bin`, `combat.bin` ...), AI (`aibldreq.bin`, `bldset1-5.bin`) |
+| `racetech.tec` | 36,400 | 325 offsets (1,300 bytes), then 325 records of 108 bytes |
+| `morale.bin` | 460 | 115 `i32`: five 50s, then values in groups of five (one per major race?), many negative (-10, -7 ...) |
+| `ppgrowth.bin` | 120 | 10 records of 12 bytes: two `u16` (10, 50 ...), a `u32` halving from 1,000,000 to 1,250, and a flag |
+| `intel.bin` | 480 | 120 `i32`, in groups of 24 (one per major race?) |
+| `meplanet.bin`, `meprvnum.bin`, `habit.bin` | 2,640, 120, 112 | `meplanet.bin` holds names ("Cardassia" ...) |
+| `aibldreq.bin`, `bldset1-5.bin` | 1,848, 280-792 | AI building rules |
+| `combat.bin`, `converse.bin` | 62,500, 16,714 | |
 | 7 `.wtf` | 578 to 2,913 | AI weights, colonisation values per race |

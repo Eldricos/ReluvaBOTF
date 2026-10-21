@@ -21,7 +21,7 @@ enum class FieldType {
     Text, // zero-terminated within `size` bytes (what follows the zero is leftover)
     U8,   // `size` of them
     U16,  // `size` of them
-    U32,
+    U32,  // `size` of them
     F32,
     F64,
 };
@@ -30,7 +30,7 @@ struct Field {
     const char* name;
     uint32_t offset;
     FieldType type;
-    uint32_t size = 1; // Text: bytes; U8, U16: how many
+    uint32_t size = 1; // Text: bytes; U8, U16, U32: how many
 };
 
 struct TableLayout {

@@ -310,7 +310,8 @@ void testDataTable() {
 
     // Without descriptions, and with fields that leave gaps.
     const TableLayout gaps = {"gaps.tbl", nullptr, TableLayout::Count::FileSize, 0, 8,
-                              {{"value", 2, F::U16}, {"real", 4, F::F32}, {"pair", 2, F::U16, 3}}, 0, -1};
+                              {{"value", 2, F::U16}, {"real", 4, F::F32}, {"pair", 2, F::U16, 3}, {"words", 0, F::U32, 2}},
+                              0, -1};
     Bytes two(16, 0);
     two[2] = 0x34;
     two[3] = 0x12;
@@ -319,8 +320,12 @@ void testDataTable() {
     CHECK(!table.load(gaps, two));
     CHECK(table.count() == 2 && table.value(0, gaps.fields[0]) == "4660" && table.value(0, gaps.fields[1]) == "0.5");
     CHECK(table.value(0, gaps.fields[2]) == "4660 0 16128"); // a U16 array: 0x1234, then the float's bytes
+    CHECK(table.value(0, gaps.fields[3]) == "305397760 1056964608"); // 0x12340000, 0x3f000000
     CHECK(table.description(0).empty());
-    CHECK(table.unknownRanges() == (std::vector<std::pair<uint32_t, uint32_t>>{{0, 2}}));
+    CHECK(table.unknownRanges().empty()); // "words" covers bytes 0-7
+    const TableLayout partial = {"gaps.tbl", nullptr, TableLayout::Count::FileSize, 0, 8, {{"value", 2, F::U16}}, 0, -1};
+    CHECK(!table.load(partial, two));
+    CHECK(table.unknownRanges() == (std::vector<std::pair<uint32_t, uint32_t>>{{0, 2}, {4, 8}}));
 
     // Counts that don't fit, and sizes that aren't whole records, fail.
     data[0] = 3;
@@ -332,7 +337,8 @@ void testDataTable() {
     for (const TableLayout& l : tableLayouts())
         for (const Field& f : l.fields)
             CHECK(f.offset + (f.type == F::Text || f.type == F::U8 ? f.size : f.type == F::F64 ? 8u
-                                                                    : f.type == F::U16    ? 2u * f.size : 4u) <=
+                                                                    : f.type == F::U16    ? 2u * f.size
+                                                                    : f.type == F::U32    ? 4u * f.size : 4u) <=
                   l.recordSize);
 }
 
