@@ -1,7 +1,6 @@
 # Star Trek: Birth of the Federation: `.snd` sound archives
 
-Status: **understood**, except what `flags` 2 means in `sfx.snd`, and the
-sample rate of the ADPCM sounds. Source: the first 8 KB and last 4 KB of
+Status: **understood**, except what `flags` 2 means in `sfx.snd`. Source: the first 8 KB and last 4 KB of
 `sfx.snd`, `english.snd` and `music.snd` (`scripts/botf_sample.py`), then
 every directory entry of the whole files with the first bytes of each sound
 (`scripts/botf_probe.py`), October 2026.
@@ -67,8 +66,9 @@ then a zero byte. Checked on all 1,364 speech clips and 151 music segments:
 each starts with a valid header, and every stored size is a whole number of
 blocks.
 
-The sample rate isn't stored; 22,050 Hz (like `sfx.snd`'s first WAV) is the
-first thing to try, by ear.
+The sample rate isn't stored. It's 22,050 Hz, like `sfx.snd`'s WAV files:
+listening in Reluva's viewer at 11,025, 22,050 and 44,100 Hz, speech and
+music sound right only at 22,050 (October 2026).
 
 `third` is the size of the decoded sound as a 16-bit PCM WAV file: a
 44-byte header plus 2 bytes per sample and channel. For example 62,464

@@ -13,8 +13,9 @@
 
 namespace reluva::botf {
 
-// The sample rate assumed for the .snd archives' ADPCM sounds, which don't
-// store one (sfx.snd's WAV files are all 22,050 Hz). Not yet confirmed.
+// The sample rate of the .snd archives' ADPCM sounds, which don't store one:
+// 22,050 Hz, like sfx.snd's WAV files, and confirmed by ear (speech and
+// music sound right at it, not at 11,025 or 44,100).
 constexpr int kDefaultAdpcmRate = 22050;
 
 // sfx.snd, english.snd (german.snd) and music.snd: numbered sounds without

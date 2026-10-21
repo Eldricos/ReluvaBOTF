@@ -5,7 +5,9 @@ Status: **understood**, except the 16-bit check value. Source: the first
 runs of `scripts/botf_probe.py` on the whole file, October 2026. The last
 run decoded all 31 files by their directory entries: each gives exactly
 its decoded size, from exactly its compressed size, and starts with a
-valid TGA header.
+valid TGA header. Those runs used a wrong window start (corrected below,
+after the images showed garbled in Reluva); sizes and headers don't depend
+on it, but the pixels, footers and check-value tests did.
 
 An archive of 31 TGA images, each LZSS-compressed. Not a zip, unlike
 `stbof.res`. All values little-endian.
@@ -31,10 +33,10 @@ u32 flag            1 in every entry (compressed?)
 u32 check           under 65,536; how it's computed is still open
 ```
 
-The check isn't the sum of the bytes, the sum or XOR of 16-bit words,
-either half of a CRC-32 (each tried on the compressed and the decoded
-bytes), nor six common CRC-16s (tried on the first three files). A reader
-doesn't need it.
+The check isn't the sum, the sum or XOR of 16-bit words, either half of a
+CRC-32, nor six common CRC-16s of the compressed bytes. The same tests on
+the decoded bytes were made with the wrong window start, so they need
+redoing. A reader doesn't need it.
 
 The data isn't stored in directory order: the last entry, `rw.tga`, comes
 first at offset 24, then entries 0 to 29 in order. Each file's compressed
@@ -47,7 +49,7 @@ A variant of the common 1989 LZSS (Haruhiko Okumura's), with the reference
 bytes in a different order:
 
 - Each file is compressed on its own: a 4,096-byte window, all zeros at
-  the start, writing from `0xFEE` (4,096 - 18), and a new flag byte.
+  the start, writing from position **1**, and a new flag byte.
 - A flag byte describes the next eight items, low bit first. Bit 1: one
   literal byte. Bit 0: a two-byte reference `a b`:
   - length = `(a >> 4) + 2` (2 to 17 bytes)
@@ -66,16 +68,21 @@ How it was worked out:
   With references read as length `(a >> 4) + 2`, the first two references
   fill exactly the 9 header bytes between `00 00 02` and the width; the
   usual Okumura order (length in `b`'s low nibble) gives 12.
-- Long runs of references `f0 1b`, `f0 2c`, `f0 3d`, ... each copy 17 bytes
-  from a position 17 further on: zero runs, copied from the not yet written
-  part of the window. With writing starting at `0xFEE`, each of these 161
-  references reads 18 bytes ahead of the write position, as Okumura's
-  encoder does when it matches the zero-filled start of the window; any
-  other start position puts them at odd distances or reads pixels instead
-  of zeros.
-- Decoded this way, the first 8 KB give a valid TGA header and 37 rows of
-  pixels, mostly black with scattered single grey and coloured pixels (a
-  starfield), every pixel aligned on 2 bytes.
+- Long runs of references `f0 1b`, `f0 2c`, `f0 3d`, ... each copy 17
+  bytes from a position 17 further on: runs of one byte value (black),
+  each copied from the byte just before the write position. That pins the
+  write position to 1 more than each reference's position, so writing
+  starts at 1. (The first version of this page started it at `0xFEE`,
+  which makes these references read 18 bytes *ahead*, into the zero-filled
+  window, as Okumura's encoder can. That decodes the header and the black
+  runs the same way, but every other copy then reads from the wrong place:
+  the images came out garbled after their first rows.)
+- Checked on the first 37 rows of `rw.tga` (the first 8 KB): with writing
+  from 1, the copies that aren't runs are at even distances (2-byte pixels)
+  in 96% of cases, against 4% with `0xFEE`; the pixels use 96 colours, the
+  most common dim blue, green, red and grey, none with the top bit set: a
+  starfield of single stars on black. Other start positions give streaks
+  of saturated colour and 180-310 colours.
 - Decoding the whole file as one stream broke every image after the first:
   headers with garbage colour-map fields, and copies of old data where
   zeros belong. That is what a decoder does if it keeps the window and the
@@ -87,11 +94,11 @@ How it was worked out:
 
 Every file is an uncompressed TGA: type 2, no colour map, 800x600, 16-bit
 (`A1R5G5B5`), descriptor `0x01` (one attribute bit, rows from the bottom
-up). 960,018 bytes, or 960,044 for the 21 with 26 more bytes after the pixels.
-In 20 of those they are a TGA 2.0 footer (`TRUEVISION-XFILE.`) whose
-extension and developer-area offsets hold garbage instead of 0, as if the
-tool that wrote them left them uninitialised; `h_fo.tga`'s 26 bytes have no
-signature. A reader should ignore anything after the pixels, as
+up). 960,018 bytes, or 960,044 for the 21 with 26 more bytes after the pixels,
+presumably a TGA 2.0 footer (`TRUEVISION-XFILE.`). The probe found the
+signature in 20 of them, with nonzero offsets before it and none in
+`h_fo.tga`, but it decoded with the wrong window start, so those details
+need checking again. A reader should ignore anything after the pixels, as
 `common/image.cpp` already does.
 
 The names follow the race letters (`c`, `f`, `h`, `k`, `r`, see

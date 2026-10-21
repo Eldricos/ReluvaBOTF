@@ -93,11 +93,12 @@ Linux (with each distro's packages) and Windows with Visual Studio 2022.
 
 - Birth of the Federation also opens as a data viewer, on the images of
   `stbof.res` and `alt.res`: **Left/Right** step through them,
-  **PageUp/PageDown** by 10, **S** jumps to the next archive. **Tab** switches
+  **PageUp/PageDown** by 10, **S** jumps to the next archive, **I** hides the
+  status line. **Tab** switches
   to the sounds (effects, speech and music): **Up/Down** pick one, **Left/Right**
   the archive, **Space** plays or stops it, **A** plays each as it's
   selected, and **R** changes the sample rate the speech and music are
-  played at (not stored in the files; 22,050 Hz until confirmed by ear).
+  played at (not stored in the files; 22,050 Hz, the default, is right).
   `music.snd` is only on the CD: copy it, and the CD's `ENGLISH` folder, into
   the game folder, or leave `Stbof.ini`'s `CDPATH` pointing at the CD.
 

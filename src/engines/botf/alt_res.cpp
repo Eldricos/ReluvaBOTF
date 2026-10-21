@@ -12,7 +12,10 @@ namespace {
 constexpr size_t kHeaderSize = 24;
 constexpr size_t kEntrySize = 40;
 constexpr size_t kWindowSize = 4096;
-constexpr size_t kWindowStart = 0xFEE;
+// Where writing into the window starts. Found by decoding with each start:
+// only this one gives the copies even (2-byte pixel) distances and the
+// pictures clean colours (docs/formats/botf/alt-res.md).
+constexpr size_t kWindowStart = 1;
 
 uint32_t u32(const uint8_t* p) { return uint32_t(p[0] | p[1] << 8 | p[2] << 16) | uint32_t(p[3]) << 24; }
 

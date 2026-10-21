@@ -17,7 +17,7 @@
 namespace reluva::botf {
 
 // Decompresses one file of alt.res's LZSS (docs/formats/botf/alt-res.md):
-// a 4 KB zero-filled window written from 0xFEE; a flag byte per 8 items, low
+// a 4 KB zero-filled window written from position 1; a flag byte per 8 items, low
 // bit first, 1 a literal byte, 0 a reference `a b` copying (a >> 4) + 2 bytes
 // from window position (a & 0x0F) << 8 | b. Stops after `size` bytes; fails
 // if `data` runs out first. `used` gets the number of input bytes read.

@@ -30,7 +30,7 @@ void fillRect(Surface& s, int x, int y, int w, int h, Color c);
 
 // Browses the TGA images of the given archives (stbof.res, alt.res).
 //   Left/Right: previous/next   PageUp/PageDown: jump 10   Home/End: first/last
-//   S: the next archive's first image
+//   S: the next archive's first image   I: the status line on/off
 class ImageViewer {
 public:
     ImageViewer(System& sys, Surface& screen, std::vector<const Archive*> archives);
@@ -49,6 +49,7 @@ private:
     Surface& screen_;
     std::vector<ImageRef> images_;
     size_t current_ = 0;
+    bool info_ = true;
 };
 
 // Plays the .snd archives' sounds: sfx.snd's effects, the language's speech,
@@ -56,7 +57,7 @@ private:
 //   Up/Down: previous/next   PageUp/PageDown: jump 20   Home/End: first/last
 //   Left/Right: previous/next archive   Space or Enter: play or stop
 //   A: play each sound as it's selected   R: the ADPCM sounds' sample rate
-//   (11,025, 22,050 or 44,100 Hz: it isn't stored, so this is for finding it)
+//   (11,025, 22,050 or 44,100 Hz; it isn't stored, and 22,050 is right)
 class SoundViewer {
 public:
     // `mixer` may be null (no audio device): sounds are listed, not played.

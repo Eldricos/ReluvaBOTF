@@ -52,27 +52,25 @@ void writeFile(const std::filesystem::path& p, const Bytes& b) {
     out.write(reinterpret_cast<const char*>(b.data()), std::streamsize(b.size()));
 }
 
-// A small LZSS encoder in alt.res's format, as its tool behaves: runs of
-// zeros copied from the not yet written, zero-filled part of the window
-// (18 bytes ahead) while it lasts, repeats of the last 2 bytes copied from
-// just behind, and literals for the rest.
+// A small LZSS encoder in alt.res's format, writing the window from
+// position 1 as its tool does: runs of a byte copied from 1 byte back,
+// repeats of the last 2 bytes (a pixel) from 2 back, and literals for the
+// rest. A decoder starting its window anywhere else reads the wrong bytes.
 Bytes compress(const Bytes& raw) {
     std::vector<Bytes> items;
-    size_t r = 0xFEE;
+    size_t r = 1;
     for (size_t i = 0; i < raw.size();) {
-        size_t zeros = 0;
-        while (i + zeros < raw.size() && raw[i + zeros] == 0 && zeros < 17)
-            ++zeros;
-        size_t repeat = 0;
-        if (i >= 2)
-            while (i + repeat < raw.size() && repeat < 17 && raw[i + repeat] == raw[i - 2 + repeat % 2])
-                ++repeat;
-        size_t from = 0, len = 0;
-        if (zeros >= 2 && i + 18 + zeros <= 4096) // that part of the window is still unwritten
-            from = (r + 18) % 4096, len = zeros;
-        else if (repeat >= 2)
-            from = (r + 4096 - 2) % 4096, len = repeat;
+        size_t len = 0, back = 0;
+        for (size_t d : {size_t(1), size_t(2)}) {
+            size_t n = 0;
+            if (i >= d)
+                while (i + n < raw.size() && n < 17 && raw[i + n] == raw[i - d + n % d])
+                    ++n;
+            if (n > len)
+                len = n, back = d;
+        }
         if (len >= 2) {
+            const size_t from = (r + 4096 - back) % 4096;
             items.push_back({uint8_t((len - 2) << 4 | from >> 8), uint8_t(from & 0xff)});
             i += len;
             r = (r + len) % 4096;
@@ -95,15 +93,18 @@ Bytes compress(const Bytes& raw) {
     return out;
 }
 
-// A small 16-bit TGA, mostly black with a few coloured pixels.
+// A small 16-bit TGA: runs of colours that change every few pixels, and
+// some black, so copies read from the wrong place give the wrong bytes.
 Bytes makeTga(int w, int h, uint8_t seed) {
     Bytes t = {0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0};
     put16(t, uint32_t(w));
     put16(t, uint32_t(h));
     t.push_back(16);
     t.push_back(1);
-    for (int i = 0; i < w * h; ++i)
-        put16(t, i % 7 == seed % 7 ? uint32_t(0x2529 + i + seed) : (i % 11 == 0 ? 0x7fff : 0));
+    for (int i = 0; i < w * h; ++i) {
+        const int run = i / (3 + (i / 50) % 9);
+        put16(t, run % 5 == 0 ? 0 : uint32_t((run * 2654435761u + seed) >> 17) & 0x7fff);
+    }
     return t;
 }
 

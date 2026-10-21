@@ -85,7 +85,7 @@ class Lzss:
 
     def reset_window(self):
         self.window = bytearray(4096)
-        self.r = 0xFEE
+        self.r = 1  # where writing starts, docs/formats/botf/alt-res.md
 
     def new_flags(self):
         self.flags = 0

@@ -57,7 +57,10 @@ void ImageViewer::handleKey(uint32_t key) {
         next = 0;
     else if (key == key::End)
         next = n - 1;
-    else if (key == 's') {
+    else if (key == 'i') {
+        info_ = !info_;
+        next = current_;
+    } else if (key == 's') {
         // The first image of the next archive, wrapping round.
         next = current_;
         do
@@ -84,10 +87,11 @@ void ImageViewer::show(size_t index) {
     else if (Error err2 = image::decode(data, img))
         status = "can't decode: " + err2.message;
     else {
-        // Larger images are shown at half or a third of their size; smaller
-        // ones in the middle at their own.
+        // Images up to the screen's size (the full-screen 800x600 ones
+        // included) are shown at their own size, in the middle; larger ones
+        // at half or a third of it.
         int scale = 1;
-        while (img.w / scale > screen_.w || img.h / scale > screen_.h - 14)
+        while (img.w / scale > screen_.w || img.h / scale > screen_.h)
             ++scale;
         image::Image shown = img;
         if (scale > 1) {
@@ -98,17 +102,20 @@ void ImageViewer::show(size_t index) {
                 for (int x = 0; x < shown.w; ++x)
                     std::copy_n(img.pixel(x * scale, y * scale), 4, shown.pixel(x, y));
         }
-        image::blit(screen_, shown, (screen_.w - shown.w) / 2, (screen_.h - 14 - shown.h) / 2);
+        image::blit(screen_, shown, (screen_.w - shown.w) / 2, (screen_.h - shown.h) / 2);
         status = std::to_string(img.w) + "x" + std::to_string(img.h) + (scale > 1 ? " (shown at 1/" +
                  std::to_string(scale) + ")" : "");
     }
     const std::string line = std::to_string(index + 1) + "/" + std::to_string(images_.size()) + "  " +
                              std::filesystem::path(ref.archive->describe()).filename().string() + ": " + ref.name + "  " + status;
-    fillRect(screen_, 0, screen_.h - 14, screen_.w, 14, {0, 0, 0});
-    font::drawText(screen_, 4, screen_.h - 12, line, {230, 230, 230});
+    // The status line goes over the bottom of the picture; I hides it.
+    if (info_) {
+        fillRect(screen_, 0, screen_.h - 14, screen_.w, 14, {0, 0, 0});
+        font::drawText(screen_, 4, screen_.h - 12, line, {230, 230, 230});
+    }
     sys_.setWindowTitle("Reluva - Birth of the Federation - images " + std::to_string(index + 1) + "/" +
                         std::to_string(images_.size()) + ": " + ref.name +
-                        " (Left/Right, S: next archive, Tab: sounds)");
+                        " (Left/Right, S: next archive, I: info, Tab: sounds)");
 }
 
 } // namespace reluva::botf
