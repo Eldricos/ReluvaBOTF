@@ -67,6 +67,10 @@
 //                                                  what they print, register and draw
 //   reluva-tool shader-check <game folder>         count the shader directives the engine doesn't know
 //                                                  or draw yet, with example shaders
+//   reluva-tool alt-list <alt.res> [out dir]       list Birth of the Federation's alt.res, checking every
+//                                                  file decompresses; write them to out dir
+//   reluva-tool snd-list <file.snd> [-m] [-r rate] [out dir]  list a BotF sound archive (-m: music.snd's
+//                                                  layout) and decode each sound; write WAVs to out dir
 
 #include "common/audio/decode.h"
 #include "common/audio/wav.h"
@@ -86,6 +90,10 @@
 #include "common/font.h"
 #include "common/fs.h"
 #include "common/zip.h"
+#ifdef RELUVA_ENGINE_BOTF
+#include "engines/botf/alt_res.h"
+#include "engines/botf/snd_archive.h"
+#endif
 #ifdef RELUVA_ENGINE_IDTECH3
 #include "engines/idtech3/bsp.h"
 #include "engines/idtech3/filesystem.h"
@@ -3203,6 +3211,96 @@ int cmdPk3List(int argc, char** argv) {
 
 #endif // RELUVA_ENGINE_IDTECH3
 
+#ifdef RELUVA_ENGINE_BOTF
+int cmdAltList(int argc, char** argv) {
+    if (argc < 3) {
+        std::fprintf(stderr, "usage: reluva-tool alt-list <alt.res> [output dir]\n");
+        return 2;
+    }
+    reluva::botf::AltResArchive alt;
+    if (reluva::Error err = alt.open(argv[2])) {
+        std::fprintf(stderr, "%s\n", err.message.c_str());
+        return 1;
+    }
+    const std::filesystem::path outDir = argc > 3 ? argv[3] : "";
+    if (!outDir.empty())
+        std::filesystem::create_directories(outDir);
+    int failed = 0;
+    for (const auto& e : alt.entries()) {
+        Bytes data;
+        reluva::Error err = alt.read(e, data);
+        std::printf("%-16s offset %9u packed %8u size %8u index %2u flag %u check 0x%04x  %s\n", e.name.c_str(),
+                    e.offset, e.compressedSize, e.size, e.index, e.flag, e.check, err ? err.message.c_str() : "ok");
+        if (err) {
+            ++failed;
+            continue;
+        }
+        if (!outDir.empty()) {
+            std::ofstream out(outDir / e.name, std::ios::binary);
+            out.write(reinterpret_cast<const char*>(data.data()), std::streamsize(data.size()));
+        }
+    }
+    std::printf("%zu files, %d failed\n", alt.entries().size(), failed);
+    return failed ? 1 : 0;
+}
+
+int cmdSndList(int argc, char** argv) {
+    bool music = false;
+    int rate = reluva::botf::kDefaultAdpcmRate;
+    const char* file = nullptr;
+    std::filesystem::path outDir;
+    for (int a = 2; a < argc; ++a) {
+        if (std::strcmp(argv[a], "-m") == 0)
+            music = true;
+        else if (std::strcmp(argv[a], "-r") == 0 && a + 1 < argc)
+            rate = int(parseNumber(argv[++a]));
+        else if (!file)
+            file = argv[a];
+        else
+            outDir = argv[a];
+    }
+    if (!file || rate <= 0) {
+        std::fprintf(stderr, "usage: reluva-tool snd-list <file.snd> [-m] [-r rate] [output dir]\n");
+        return 2;
+    }
+    reluva::botf::SndArchive snd;
+    if (reluva::Error err = snd.open(file, music)) {
+        std::fprintf(stderr, "%s\n", err.message.c_str());
+        return 1;
+    }
+    if (!outDir.empty())
+        std::filesystem::create_directories(outDir);
+    int failed = 0;
+    const auto& entries = snd.entries();
+    for (size_t i = 0; i < entries.size(); ++i) {
+        const auto& e = entries[i];
+        reluva::audio::Sound sound;
+        reluva::Error err = snd.decode(i, rate, sound);
+        char piece[24] = "";
+        if (e.piece >= 0)
+            std::snprintf(piece, sizeof piece, "piece %2d ", e.piece);
+        std::printf("%4zu %soffset %9u size %8u decoded %8u flags %u  ", i, piece, e.offset, e.size, e.decodedSize,
+                    e.flags);
+        if (err) {
+            std::printf("%s\n", err.message.c_str());
+            ++failed;
+            continue;
+        }
+        std::printf("%s %d Hz %s %.2f s\n", reluva::audio::formatName(sound.format), sound.rate,
+                    sound.channels == 2 ? "stereo" : "mono", double(sound.frames()) / sound.rate);
+        if (!outDir.empty()) {
+            char name[32];
+            std::snprintf(name, sizeof name, "%04zu.wav", i);
+            const Bytes wav = reluva::audio::encodePcmWav(sound);
+            std::ofstream out(outDir / name, std::ios::binary);
+            out.write(reinterpret_cast<const char*>(wav.data()), std::streamsize(wav.size()));
+        }
+    }
+    std::printf("%zu sounds, %d failed\n", entries.size(), failed);
+    return failed ? 1 : 0;
+}
+#endif // RELUVA_ENGINE_BOTF
+
 } // namespace
 
 int main(int argc, char** argv) {
@@ -3260,6 +3358,12 @@ int main(int argc, char** argv) {
     if (argc >= 2 && std::strcmp(argv[1], "geo-faces") == 0)
         return cmdGeoFaces(argc, argv);
 #endif
+#ifdef RELUVA_ENGINE_BOTF
+    if (argc >= 2 && std::strcmp(argv[1], "alt-list") == 0)
+        return cmdAltList(argc, argv);
+    if (argc >= 2 && std::strcmp(argv[1], "snd-list") == 0)
+        return cmdSndList(argc, argv);
+#endif
 #ifdef RELUVA_ENGINE_IDTECH3
     if (argc >= 2 && std::strcmp(argv[1], "bsp-check") == 0)
         return cmdBspCheck(argc, argv);
@@ -3311,6 +3415,10 @@ int main(int argc, char** argv) {
                  "  reluva-tool gmf-info <file.gmf> [record number]\n"
                  "  reluva-tool geo-faces <file.geo>\n"
                  "  reluva-tool lbp-info <file> [output prefix]\n"
+#endif
+#ifdef RELUVA_ENGINE_BOTF
+                 "  reluva-tool alt-list <alt.res> [output dir]\n"
+                 "  reluva-tool snd-list <file.snd> [-m] [-r rate] [output dir]\n"
 #endif
 #ifdef RELUVA_ENGINE_IDTECH3
                  "  reluva-tool bsp-check <game folder, e.g. .../BaseEF>\n"

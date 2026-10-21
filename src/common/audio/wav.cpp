@@ -45,30 +45,31 @@ struct ImaChannel {
 // Microsoft's IMA ADPCM blocks: per channel a header (s16 first sample, u8
 // step index, u8 0); then groups of 4 bytes per channel in turn, each 8
 // codes, low nibble first.
-Error decodeIma(const std::vector<uint8_t>& d, size_t at, size_t size, int channels, size_t blockAlign,
-                size_t frameLimit, std::vector<int16_t>& out) {
+Error decodeIma(const uint8_t* d, size_t size, int channels, size_t blockAlign, size_t frameLimit,
+                std::vector<int16_t>& out) {
     if (blockAlign < 4 * size_t(channels))
         return Error::fail("ADPCM block of " + std::to_string(blockAlign) + " bytes is too small");
-    for (size_t block = at; block < at + size; block += blockAlign) {
-        const size_t len = std::min(blockAlign, at + size - block);
+    for (size_t block = 0; block < size; block += blockAlign) {
+        const size_t len = std::min(blockAlign, size - block);
         if (len < 4 * size_t(channels))
             break;
+        const uint8_t* b = d + block;
         ImaChannel ch[2];
         std::vector<int16_t> frames;
         for (int c = 0; c < channels; ++c) {
-            ch[c].sample = int16_t(u16(d, block + 4 * size_t(c)));
-            ch[c].index = std::min(int(d[block + 4 * size_t(c) + 2]), 88);
+            ch[c].sample = int16_t(b[4 * c] | b[4 * c + 1] << 8);
+            ch[c].index = std::min(int(b[4 * c + 2]), 88);
         }
         // The header's sample, then 2 per byte of each channel's codes.
         const size_t blockFrames = 1 + (len - 4 * size_t(channels)) * 2 / size_t(channels);
         frames.resize(blockFrames * size_t(channels));
         for (int c = 0; c < channels; ++c)
             frames[size_t(c)] = int16_t(ch[c].sample);
-        size_t p = block + 4 * size_t(channels);
-        for (size_t group = 0; p + 4 * size_t(channels) <= block + len; ++group)
+        size_t p = 4 * size_t(channels);
+        for (size_t group = 0; p + 4 * size_t(channels) <= len; ++group)
             for (int c = 0; c < channels; ++c, p += 4)
                 for (size_t k = 0; k < 8; ++k) {
-                    const unsigned code = k % 2 ? d[p + k / 2] >> 4 : d[p + k / 2] & 15;
+                    const unsigned code = k % 2 ? b[p + k / 2] >> 4 : b[p + k / 2] & 15;
                     const size_t frame = 1 + group * 8 + k;
                     frames[frame * size_t(channels) + size_t(c)] = ch[c].decode(code);
                 }
@@ -118,13 +119,25 @@ Error decodeWav(const std::vector<uint8_t>& d, Sound& out) {
         for (size_t i = 0; i < dataSize; ++i)
             out.samples.push_back(int16_t((int(d[data + i]) - 128) << 8));
     } else if (out.format == 0x11 && bits == 4) {
-        if (Error err = decodeIma(d, data, dataSize, out.channels, blockAlign, factFrames, out.samples))
+        if (Error err = decodeIma(d.data() + data, dataSize, out.channels, blockAlign, factFrames, out.samples))
             return err;
     } else {
         return Error::fail("WAVE format " + std::to_string(out.format) + " with " + std::to_string(bits) +
                            " bits isn't supported");
     }
     return Error::success();
+}
+
+Error decodeImaAdpcm(const uint8_t* data, size_t size, int channels, int rate, size_t blockAlign, size_t frameLimit,
+                     Sound& out) {
+    out = Sound{};
+    if (channels < 1 || channels > 2 || rate <= 0)
+        return Error::fail("IMA ADPCM with " + std::to_string(channels) + " channels at " + std::to_string(rate) +
+                           " Hz");
+    out.format = 0x11;
+    out.channels = channels;
+    out.rate = rate;
+    return decodeIma(data, size, channels, blockAlign, frameLimit, out.samples);
 }
 
 std::vector<uint8_t> encodePcmWav(const Sound& s) {

@@ -1,8 +1,23 @@
-# Star Trek: Birth of the Federation: first look
+# Star Trek: Birth of the Federation
 
-Proposed engine id `botf`. No engine code is written yet; this page records
-what the executables, the directory listings and samples of the data files
-show, and how the engine should be approached.
+Engine id `botf`, in `src/engines/botf/` (CMake option `RELUVA_ENGINE_BOTF`,
+on by default). This page records what the executables, the directory
+listings and the data files show, how the engine is approached, and where it
+stands.
+
+## Where it stands
+
+| Part | State |
+|---|---|
+| Detection | English retail by `stbof.res` and `english.snd`; German by `stbof.res` (as on the CD) and a `german.snd` of any hash; anything else with `stbof.res` and `sfx.snd` as "unknown release" |
+| Finding files | `game_files.cpp`: the game folder, its language folder, and `Stbof.ini`'s `CDPATH` with its language folder, so a minimum install finds `music.snd` on the CD or copied beside the game |
+| `stbof.res` | read with `common/zip.cpp` |
+| `alt.res` | `AltResArchive` (`alt_res.cpp`): directory and LZSS ([alt-res.md](../formats/botf/alt-res.md)) |
+| `.snd` archives | `SndArchive` (`snd_archive.cpp`): both layouts; WAV entries through `common/audio/wav.cpp`, bare IMA ADPCM through its `decodeImaAdpcm` ([snd.md](../formats/botf/snd.md)) |
+| Viewer | Images (`stbof.res` and `alt.res` TGAs) and Sounds (effects, speech, music pieces) pages; keys in the README |
+| Tools | `reluva-tool alt-list` (list and extract `alt.res`), `snd-list` (list and decode a `.snd` archive to WAV) |
+| Tests | `tests/test_botf.cpp`: LZSS (with bytes from the retail file's start), `alt.res`, both `.snd` layouts, ADPCM without a WAV header, `Stbof.ini` and file finding |
+| Not yet | the ADPCM sounds' sample rate (the viewer's **R** key is for finding it by ear), `.gif` textures (stb_image is built without GIF), fonts, text and data tables, models, movies, saves, the game itself |
 
 Sources (October 2026): `trek.exe` and `Trek.icd` from an English retail
 install, directory listings of that install and of the CD, and
@@ -102,15 +117,12 @@ The New Worlds engine's order fits here too: readers and a data viewer first,
 then the game screens, then the rules, with recordings of the original filling
 what the data can't show.
 
-1. **Detection** (`reluva --hash`): `stbof.res`, `english.snd`; English and
-   German (the German `.snd` still to be hashed).
-2. **Archives.** `stbof.res` through `ZipArchive`. `alt.res` and the `.snd`
-   archives as `Archive`s of numbered entries, after `scripts/botf_probe.py`
-   has confirmed their layout on the whole files. Expose the IMA ADPCM block
-   decoder in `common/audio` so the `.snd` clips can use it without a WAV
-   header.
-3. **Data viewer**, as for New Worlds: interface TGAs, `alt.res` pictures,
-   sounds, speech and music, fonts (`.fnt`), text tables (`.tdb`), then the
+1. **Detection.** Done for English; hash `german.snd` when a German install
+   is available.
+2. **Archives.** Done: `stbof.res`, `alt.res` and the `.snd` archives (see
+   the table above).
+3. **Data viewer**, as for New Worlds. Done: interface TGAs, `alt.res`
+   pictures, sounds, speech and music. Next: fonts (`.fnt`), text tables (`.tdb`), then the
    binary tables (`.sst`, `.bst`, `.rst`, `.tec`, `.pst`, `.bin`). Each format
    written up under `docs/formats/botf/` with how it was worked out.
 4. **Models.** `.hob` with their `.gif` textures, on the Models page with

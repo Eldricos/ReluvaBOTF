@@ -26,6 +26,9 @@ src/engines/       one directory per engine, plus registry.cpp listing them
   idtech3/         games on the Quake III Arena engine, starting with Star Trek:
                    Voyager - Elite Force: search path, shader scripts, BSP
                    maps; currently runs as a data viewer (docs/engines/idtech3.md)
+  botf/            Star Trek: Birth of the Federation: its archives (stbof.res,
+                   alt.res, the .snd sound archives); currently runs as a data
+                   viewer (docs/engines/botf.md)
 src/tools/         reluva-tool, utilities for studying game data
 tests/             unit tests for common/ and the engines
 ```
@@ -43,8 +46,8 @@ cmake --build build -j
 ./build/reluva
 ```
 
-Engines are CMake options (`RELUVA_ENGINE_IDTECH3` on, `RELUVA_ENGINE_NEWWORLDS`
-off by default for now); see the build notes.
+Engines are CMake options (`RELUVA_ENGINE_IDTECH3` and `RELUVA_ENGINE_BOTF` on,
+`RELUVA_ENGINE_NEWWORLDS` off by default for now); see the build notes.
 
 See **[docs/BUILDING.md](docs/BUILDING.md)** for step-by-step instructions for
 Linux (with each distro's packages) and Windows with Visual Studio 2022.
@@ -56,7 +59,8 @@ Linux (with each distro's packages) and Windows with Visual Studio 2022.
   runs the test pattern.
 - `reluva --hash <files...>` prints detection signatures for an engine's table.
 - `reluva-tool` has developer tools for studying game data: `hexdump`,
-  `cat-probe`, `cat-list` and `cat-extract` (New Worlds archives).
+  `cat-probe`, `cat-list` and `cat-extract` (New Worlds archives), `alt-list`
+  and `snd-list` (Birth of the Federation's archives).
 - In game: **Ctrl+F5** returns to the launcher, **Alt+Enter** toggles fullscreen.
 - New Worlds currently opens as a data viewer. **Tab** switches between missions, models,
   textures, maps, sounds, strings and fonts, **Left/Right** step through them and **F** cycles filters.
@@ -86,6 +90,16 @@ Linux (with each distro's packages) and Windows with Visual Studio 2022.
   scroll, **+/-** change the text size and **F** switches to the game's fonts.
   For fonts, **Left/Right** picks one, **+/-** change the size and **B** outlines
   the glyphs' boxes.
+
+- Birth of the Federation also opens as a data viewer, on the images of
+  `stbof.res` and `alt.res`: **Left/Right** step through them,
+  **PageUp/PageDown** by 10, **S** jumps to the next archive. **Tab** switches
+  to the sounds (effects, speech and music): **Up/Down** pick one, **Left/Right**
+  the archive, **Space** plays or stops it, **A** plays each as it's
+  selected, and **R** changes the sample rate the speech and music are
+  played at (not stored in the files; 22,050 Hz until confirmed by ear).
+  `music.snd` is only on the CD: copy it, and the CD's `ENGLISH` folder, into
+  the game folder, or leave `Stbof.ini`'s `CDPATH` pointing at the CD.
 
 - Elite Force (id Tech 3) also opens as a data viewer, starting on its maps in 3D.
   **Tab** switches between the 3D world, models, wireframe maps, textures and files. In the world,

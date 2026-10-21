@@ -12,6 +12,7 @@ option(RELUVA_BUILD_TESTS "Build unit tests" ON)
 # than Visual Studio accepts (error C2026).
 option(RELUVA_ENGINE_NEWWORLDS "Build the Star Trek: New Worlds engine" OFF)
 option(RELUVA_ENGINE_IDTECH3 "Build the id Tech 3 engine (Star Trek: Voyager - Elite Force)" ON)
+option(RELUVA_ENGINE_BOTF "Build the Star Trek: Birth of the Federation engine" ON)
 
 include(FetchContent)
 
@@ -140,6 +141,16 @@ if(RELUVA_ENGINE_IDTECH3)
         src/engines/idtech3/world_viewer.cpp)
     target_compile_definitions(reluva_engines PUBLIC RELUVA_ENGINE_IDTECH3)
 endif()
+if(RELUVA_ENGINE_BOTF)
+    target_sources(reluva_engines PRIVATE
+        src/engines/botf/botf.cpp
+        src/engines/botf/alt_res.cpp
+        src/engines/botf/snd_archive.cpp
+        src/engines/botf/game_files.cpp
+        src/engines/botf/image_viewer.cpp
+        src/engines/botf/sound_viewer.cpp)
+    target_compile_definitions(reluva_engines PUBLIC RELUVA_ENGINE_BOTF)
+endif()
 target_link_libraries(reluva_engines PUBLIC reluva_common PRIVATE reluva_warnings)
 
 # --- executable: SDL3 backend + ImGui launcher --------------------------------
@@ -166,6 +177,12 @@ if(RELUVA_BUILD_TESTS)
         add_executable(reluva_newworlds_tests tests/test_newworlds_cat.cpp)
         target_link_libraries(reluva_newworlds_tests PRIVATE reluva_engines reluva_warnings)
         add_test(NAME newworlds_cat COMMAND reluva_newworlds_tests)
+    endif()
+
+    if(RELUVA_ENGINE_BOTF)
+        add_executable(reluva_botf_tests tests/test_botf.cpp)
+        target_link_libraries(reluva_botf_tests PRIVATE reluva_engines reluva_warnings)
+        add_test(NAME botf COMMAND reluva_botf_tests)
     endif()
 
     if(RELUVA_ENGINE_IDTECH3)
