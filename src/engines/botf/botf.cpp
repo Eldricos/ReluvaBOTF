@@ -10,7 +10,8 @@
 //
 // For now the engine is a data viewer: the images of stbof.res and alt.res,
 // stbof.res's fonts, the sounds of sfx.snd, the language's speech archive
-// and music.snd, and stbof.res's text tables (see viewers.h for the keys). Tab switches between them; Esc goes back to
+// and music.snd, and stbof.res's text and data tables (see viewers.h for
+// the keys). Tab switches between them; Esc goes back to
 // the launcher.
 
 #include "engines/engine.h"
@@ -27,6 +28,7 @@ namespace reluva {
 namespace {
 
 using botf::AltResArchive;
+using botf::DataViewer;
 using botf::FontViewer;
 using botf::TextViewer;
 using botf::GameFiles;
@@ -89,11 +91,12 @@ public:
         SoundViewer sounds(sys_, screen_, soundArchives, audioOut ? &mixer : nullptr);
         FontViewer fonts(sys_, screen_, stbof_);
         TextViewer texts(sys_, screen_, stbof_);
+        DataViewer data(sys_, screen_, stbof_);
 
-        // Page 0 shows images, 1 fonts, 2 sounds, 3 text; Tab moves to the
-        // next one that has something to show.
-        constexpr int kPages = 4;
-        const size_t counts[kPages] = {images.count(), fonts.count(), sounds.count(), texts.count()};
+        // Page 0 shows images, 1 fonts, 2 sounds, 3 text, 4 data; Tab moves
+        // to the next one that has something to show.
+        constexpr int kPages = 5;
+        const size_t counts[kPages] = {images.count(), fonts.count(), sounds.count(), texts.count(), data.count()};
         int page = 0;
         while (counts[page] == 0 && page < kPages - 1)
             ++page;
@@ -104,8 +107,10 @@ public:
                 fonts.activate();
             else if (page == 2)
                 sounds.activate();
-            else
+            else if (page == 3)
                 texts.activate();
+            else
+                data.activate();
         };
         activate();
         while (true) {
@@ -132,8 +137,10 @@ public:
                     fonts.handleKey(ev.key);
                 else if (page == 2)
                     sounds.handleKey(ev.key);
-                else
+                else if (page == 3)
                     texts.handleKey(ev.key);
+                else
+                    data.handleKey(ev.key);
             }
             if (page == 2)
                 sounds.update(sys_.getMillis());

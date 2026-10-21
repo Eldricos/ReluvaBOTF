@@ -16,10 +16,11 @@ stands.
 | `.snd` archives | `SndArchive` (`snd_archive.cpp`): both layouts; WAV entries through `common/audio/wav.cpp`, bare IMA ADPCM through its `decodeImaAdpcm` at 22,050 Hz (confirmed by ear) ([snd.md](../formats/botf/snd.md)) |
 | Fonts | `Font` (`font.cpp`): the 120 glyphs of every `.fnt`, found by their frames, with their advances; drawing UTF-8 text; all 21 load ([fnt.md](../formats/botf/fnt.md)) |
 | Text tables | `TextTable` (`text_table.cpp`): every `.tdb` string and its key, Windows-1252 decoded to UTF-8 ([tdb.md](../formats/botf/tdb.md)) |
-| Viewer | Images (`stbof.res` and `alt.res` TGAs, full-screen ones at their own size), Fonts (glyph sheet and sample text), Sounds (effects, speech, music pieces) and Text (each table's strings, wrapped, in a game font) pages; keys in the README |
+| Data tables | `DataTable` (`data_table.cpp`) with a `TableLayout` per table: races, ships, technologies, research fields and buildings, with names, pictures, models and descriptions; most numbers still unnamed ([tables.md](../formats/botf/tables.md)) |
+| Viewer | Images (`stbof.res` and `alt.res` TGAs, full-screen ones at their own size), Fonts (glyph sheet and sample text), Sounds (effects, speech, music pieces), Text (each table's strings, wrapped, in a game font) and Data (records, known fields, the bytes not worked out, descriptions) pages; keys in the README |
 | Tools | `reluva-tool alt-list` (list and extract `alt.res`), `snd-list` (list and decode a `.snd` archive to WAV) |
-| Tests | `tests/test_botf.cpp`: LZSS (with bytes from the retail file's start), `alt.res`, fonts and line wrapping, text tables, both `.snd` layouts, ADPCM without a WAV header, `Stbof.ini` and file finding |
-| Not yet | `.gif` textures (stb_image is built without GIF), how the game colours text, what the text tables' keys mean, the data tables, models, movies, saves, the game itself |
+| Tests | `tests/test_botf.cpp`: LZSS (with bytes from the retail file's start), `alt.res`, fonts and line wrapping, text and data tables, both `.snd` layouts, ADPCM without a WAV header, `Stbof.ini` and file finding |
+| Not yet | `.gif` textures (stb_image is built without GIF), how the game colours text, what the text tables' keys mean, most of the data tables' numbers, the other data tables, models, movies, saves, the game itself |
 
 Sources (October 2026): `trek.exe` and `Trek.icd` from an English retail
 install, directory listings of that install and of the CD, and
@@ -124,8 +125,9 @@ what the data can't show.
 2. **Archives.** Done: `stbof.res`, `alt.res` and the `.snd` archives (see
    the table above).
 3. **Data viewer**, as for New Worlds. Done: interface TGAs, `alt.res`
-   pictures, fonts, sounds, speech, music and text tables. Next: the
-   binary tables (`.sst`, `.bst`, `.rst`, `.tec`, `.pst`, `.bin`). Each format
+   pictures, fonts, sounds, speech, music, text tables, and the data tables'
+   layouts. Next: the numbers in the data tables, and the tables not started
+   (`.pst`, `.est`, `.bin`, `.wtf`, the rest of `.sst` and `.tec`). Each format
    written up under `docs/formats/botf/` with how it was worked out.
 4. **Models.** `.hob` with their `.gif` textures, on the Models page with
    `common/gfx3d`.

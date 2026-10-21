@@ -152,6 +152,8 @@ if(RELUVA_ENGINE_BOTF)
         src/engines/botf/font_viewer.cpp
         src/engines/botf/text_table.cpp
         src/engines/botf/text_viewer.cpp
+        src/engines/botf/data_table.cpp
+        src/engines/botf/data_viewer.cpp
         src/engines/botf/sound_viewer.cpp)
     target_compile_definitions(reluva_engines PUBLIC RELUVA_ENGINE_BOTF)
 endif()

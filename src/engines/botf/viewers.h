@@ -8,6 +8,7 @@
 #include "common/audio/sound.h"
 #include "common/system.h"
 #include "common/types.h"
+#include "engines/botf/data_table.h"
 #include "engines/botf/font.h"
 #include "engines/botf/snd_archive.h"
 #include "engines/botf/text_table.h"
@@ -97,6 +98,31 @@ private:
     size_t current_ = 0, font_ = 0, first_ = 0;
     TextTable table_;
     Font fontData_;
+    std::string error_;
+};
+
+// Shows the data tables worked out so far (tableLayouts()): the records by
+// name, and the selected one's fields, the bytes no field covers yet, and
+// its description.
+//   Left/Right: previous/next table   Up/Down: previous/next record
+//   PageUp/PageDown: jump 20   Home/End: first/last record
+class DataViewer {
+public:
+    DataViewer(System& sys, Surface& screen, const Archive& archive);
+    size_t count() const { return files_.size(); }
+    void activate();
+    void handleKey(uint32_t key);
+
+private:
+    void load();
+    void show();
+
+    System& sys_;
+    Surface& screen_;
+    const Archive& archive_;
+    std::vector<const TableLayout*> files_; // the layouts whose file is in the archive
+    size_t current_ = 0, record_ = 0;
+    DataTable table_;
     std::string error_;
 };
 

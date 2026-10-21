@@ -6,6 +6,7 @@
 
 #include "common/audio/wav.h"
 #include "engines/botf/alt_res.h"
+#include "engines/botf/data_table.h"
 #include "engines/botf/font.h"
 #include "engines/botf/game_files.h"
 #include "engines/botf/snd_archive.h"
@@ -280,6 +281,60 @@ void testWrap() {
     CHECK(font.wrap("", 100) == std::vector<std::string>({""}));
 }
 
+// A data table laid out as TableLayout describes: here a u16 count, then
+// 12-byte records (a name, a U8 pair, a U32 description offset), and a
+// companion file of descriptions.
+void testDataTable() {
+    using F = FieldType;
+    const TableLayout layout = {"test.tbl", "testdesc.tbl", TableLayout::Count::U16AtStart, 2, 12,
+                                {{"name", 0, F::Text, 6}, {"pair", 6, F::U8, 2}, {"description", 8, F::U32}}, 0, 2};
+    Bytes data = {2, 0};
+    auto record = [&](const char* name, uint8_t a, uint8_t b, uint32_t desc) {
+        Bytes r(6, 0xcc); // leftover bytes after the name's zero
+        std::memcpy(r.data(), name, std::strlen(name) + 1);
+        r.push_back(a);
+        r.push_back(b);
+        put32(r, desc);
+        data.insert(data.end(), r.begin(), r.end());
+    };
+    record("Farm", 1, 2, 6);
+    record("Gr\xf6\xdf", 30, 40, 0);
+    const std::string descs("Large\0Small\0", 12);
+    DataTable table;
+    CHECK(!table.load(layout, data, Bytes(descs.begin(), descs.end())));
+    CHECK(table.count() == 2);
+    CHECK(table.name(0) == "Farm" && table.name(1) == "Gr\xc3\xb6\xc3\x9f");
+    CHECK(table.value(0, layout.fields[1]) == "1 2" && table.value(1, layout.fields[2]) == "0");
+    CHECK(table.description(0) == "Small" && table.description(1) == "Large");
+    CHECK(table.unknownRanges().empty());
+
+    // Without descriptions, and with fields that leave gaps.
+    const TableLayout gaps = {"gaps.tbl", nullptr, TableLayout::Count::FileSize, 0, 8,
+                              {{"value", 2, F::U16}, {"real", 4, F::F32}}, 0, -1};
+    Bytes two(16, 0);
+    two[2] = 0x34;
+    two[3] = 0x12;
+    const float half = 0.5f;
+    std::memcpy(&two[4], &half, 4);
+    CHECK(!table.load(gaps, two));
+    CHECK(table.count() == 2 && table.value(0, gaps.fields[0]) == "4660" && table.value(0, gaps.fields[1]) == "0.5");
+    CHECK(table.description(0).empty());
+    CHECK(table.unknownRanges() == (std::vector<std::pair<uint32_t, uint32_t>>{{0, 2}}));
+
+    // Counts that don't fit, and sizes that aren't whole records, fail.
+    data[0] = 3;
+    CHECK(table.load(layout, data));
+    CHECK(table.count() == 0);
+    CHECK(table.load(gaps, Bytes(12, 0)));
+
+    // Every built-in layout's fields fit inside its records.
+    for (const TableLayout& l : tableLayouts())
+        for (const Field& f : l.fields)
+            CHECK(f.offset + (f.type == F::Text || f.type == F::U8 ? f.size : f.type == F::F64 ? 8u
+                                                                    : f.type == F::U16    ? 2u : 4u) <=
+                  l.recordSize);
+}
+
 void testLzss() {
     // The start of the retail alt.res's first file: a flag byte, literals
     // and two references that fill the TGA header's zeros; the decoded
@@ -508,6 +563,7 @@ int main() {
     testFont();
     testWrap();
     testTextTable();
+    testDataTable();
     testAltRes(tmp / "alt");
     testImaWithoutHeader();
     testSnd(tmp / "snd");

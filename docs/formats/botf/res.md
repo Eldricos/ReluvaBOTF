@@ -24,10 +24,10 @@ German one 6,014), no folders, names in lower case. 299 entries are stored
 | `.scr` | 20 | 3 KB | `ceogalli.scr` | end-of-game scripts, matching the CD's `*EOG*.wav` |
 | `.bin` | 18 | 159 KB | `morale.bin`, `planboni.bin`, `shipname.bin`, `starname.bin`, `combat.bin`, `converse.bin` | rule and name tables |
 | `.wtf` | 7 | 7 KB | `aiempire.wtf`, `aiminor.wtf`, `ccolval.wtf` | AI weights; colonisation values per race |
-| `.tec` | 4 | 59 KB | `techtree.tec`, `techdesc.tec`, `tecfield.tec`, `racetech.tec` | technology tree and text |
-| `.sst` | 4 | 70 KB | `shiplist.sst`, `shiptech.sst`, `shiprace.sst`, `shipdesc.sst` | ship classes |
-| `.bst` | 3 | 127 KB | `edifice.bst`, `edifdesc.bst`, `edifbnft.bst` | buildings |
-| `.rst` | 2 | 16 KB | `race.rst`, `racedesc.rst` | races |
+| `.tec` | 4 | 59 KB | `techtree.tec`, `techdesc.tec`, `tecfield.tec`, `racetech.tec` | technology tree and text ([tables.md](tables.md)) |
+| `.sst` | 4 | 70 KB | `shiplist.sst`, `shiptech.sst`, `shiprace.sst`, `shipdesc.sst` | ship classes ([tables.md](tables.md)) |
+| `.bst` | 3 | 127 KB | `edifice.bst`, `edifdesc.bst`, `edifbnft.bst` | buildings ([tables.md](tables.md)) |
+| `.rst` | 2 | 16 KB | `race.rst`, `racedesc.rst` | races ([tables.md](tables.md)) |
 | `.pst` | 1 | 85 KB | `planet.pst` | planets |
 | `.est` | 1 | 780 B | `environ.est` | planet environments |
 | `.lst` | 4 | 146 KB | `palette.lst`, `color.lst`, `texture.lst`, `keywords.lst` | |
