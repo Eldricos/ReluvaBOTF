@@ -5,9 +5,11 @@ Status: **understood**, except the 16-bit check value. Source: the first
 runs of `scripts/botf_probe.py` on the whole file, October 2026. The last
 run decoded all 31 files by their directory entries: each gives exactly
 its decoded size, from exactly its compressed size, and starts with a
-valid TGA header. Those runs used a wrong window start (corrected below,
-after the images showed garbled in Reluva); sizes and headers don't depend
-on it, but the pixels, footers and check-value tests did.
+valid TGA header. The first three used a wrong window start (corrected
+below, after the images showed garbled in Reluva); sizes and headers don't
+depend on it, but the pixels, footers and check-value tests did. With the
+right start, all 31 images show correctly in Reluva's viewer, and a fifth
+probe run reads clean footers.
 
 An archive of 31 TGA images, each LZSS-compressed. Not a zip, unlike
 `stbof.res`. All values little-endian.
@@ -33,10 +35,10 @@ u32 flag            1 in every entry (compressed?)
 u32 check           under 65,536; how it's computed is still open
 ```
 
-The check isn't the sum, the sum or XOR of 16-bit words, either half of a
-CRC-32, nor six common CRC-16s of the compressed bytes. The same tests on
-the decoded bytes were made with the wrong window start, so they need
-redoing. A reader doesn't need it.
+The check isn't the sum of the bytes, the sum or XOR of 16-bit words,
+either half of a CRC-32 (each of the compressed and of the decoded bytes),
+nor six common CRC-16s (tried on the first three files). A reader doesn't
+need it.
 
 The data isn't stored in directory order: the last entry, `rw.tga`, comes
 first at offset 24, then entries 0 to 29 in order. Each file's compressed
@@ -94,12 +96,9 @@ How it was worked out:
 
 Every file is an uncompressed TGA: type 2, no colour map, 800x600, 16-bit
 (`A1R5G5B5`), descriptor `0x01` (one attribute bit, rows from the bottom
-up). 960,018 bytes, or 960,044 for the 21 with 26 more bytes after the pixels,
-presumably a TGA 2.0 footer (`TRUEVISION-XFILE.`). The probe found the
-signature in 20 of them, with nonzero offsets before it and none in
-`h_fo.tga`, but it decoded with the wrong window start, so those details
-need checking again. A reader should ignore anything after the pixels, as
-`common/image.cpp` already does.
+up). 960,018 bytes, or 960,044 for the 21 that end with a 26-byte TGA 2.0
+footer (`TRUEVISION-XFILE.`) with no extension or developer area (both
+offsets 0). `common/image.cpp` ignores the footer.
 
 The names follow the race letters (`c`, `f`, `h`, `k`, `r`, see
 [res.md](res.md)):

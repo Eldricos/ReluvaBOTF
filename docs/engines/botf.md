@@ -12,7 +12,7 @@ stands.
 | Detection | English retail by `stbof.res` and `english.snd`; German by `stbof.res` (as on the CD) and a `german.snd` of any hash; anything else with `stbof.res` and `sfx.snd` as "unknown release" |
 | Finding files | `game_files.cpp`: the game folder, its language folder, and `Stbof.ini`'s `CDPATH` with its language folder, so a minimum install finds `music.snd` on the CD or copied beside the game |
 | `stbof.res` | read with `common/zip.cpp` |
-| `alt.res` | `AltResArchive` (`alt_res.cpp`): directory and LZSS ([alt-res.md](../formats/botf/alt-res.md)); the window start corrected after the first version showed the images garbled |
+| `alt.res` | `AltResArchive` (`alt_res.cpp`): directory and LZSS ([alt-res.md](../formats/botf/alt-res.md)); all 31 images checked in the viewer, after correcting the window start |
 | `.snd` archives | `SndArchive` (`snd_archive.cpp`): both layouts; WAV entries through `common/audio/wav.cpp`, bare IMA ADPCM through its `decodeImaAdpcm` at 22,050 Hz (confirmed by ear) ([snd.md](../formats/botf/snd.md)) |
 | Viewer | Images (`stbof.res` and `alt.res` TGAs, full-screen ones at their own size) and Sounds (effects, speech, music pieces) pages; keys in the README |
 | Tools | `reluva-tool alt-list` (list and extract `alt.res`), `snd-list` (list and decode a `.snd` archive to WAV) |
