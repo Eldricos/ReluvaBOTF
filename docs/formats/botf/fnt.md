@@ -8,7 +8,8 @@ Source: the first 2 KB of all 21 fonts in the English `stbof.res`, and two
 whole fonts, `generic9.fnt` and `human15.fnt` (`scripts/botf_fonts.py`),
 October 2026. Glyph cells were found by their frame lines in both whole
 fonts and compared with the header; the characters were read from the
-glyphs drawn large.
+glyphs drawn large. All 21 fonts then loaded in Reluva's viewer, every row
+with its expected number of cells.
 
 21 fonts: `human`, `klingn`, `romuln`, `ferngi` and `cardsn` (one per race,
 see [res.md](res.md)) at 9, 15, 20 and 28 point, and `generic9.fnt`.
