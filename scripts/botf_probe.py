@@ -21,6 +21,7 @@ Decompressing alt.res takes a minute or two.
 """
 
 import argparse
+import re
 import struct
 import sys
 import time
@@ -77,17 +78,35 @@ def lzss_decompress(src, start, end):
 
 
 def tga_header(data, off):
-    """(width, height, bits, descriptor, size) if a plain TGA header is at `off`."""
+    """(width, height, bits, descriptor, size, type, id length, colour map length)
+    if a TGA header plausibly starts at `off`; size is None for RLE types."""
     if off + 18 > len(data):
         return None
     id_len, cmap_type, img_type = data[off], data[off + 1], data[off + 2]
-    if cmap_type != 0 or img_type not in (2, 10) or id_len > 64:
+    if cmap_type > 1 or img_type not in (1, 2, 3, 9, 10, 11):
         return None
-    w, h, bits, desc = struct.unpack_from("<HHBB", data, off + 12)
-    if not (0 < w <= 4096 and 0 < h <= 4096 and bits in (15, 16, 24, 32)):
+    cmap_first, cmap_len, cmap_bits = struct.unpack_from("<HHB", data, off + 3)
+    if cmap_type == 0 and (cmap_len or cmap_bits):
         return None
-    size = 18 + id_len + w * h * ((bits + 7) // 8) if img_type == 2 else None
-    return w, h, bits, desc, size, img_type, id_len
+    if cmap_type == 1 and (cmap_len == 0 or cmap_bits not in (15, 16, 24, 32)):
+        return None
+    x0, y0, w, h, bits, desc = struct.unpack_from("<HHHHBB", data, off + 8)
+    if not (8 <= w <= 4096 and 8 <= h <= 4096 and bits in (8, 15, 16, 24, 32)):
+        return None
+    if x0 > 4096 or y0 > 4096 or desc & 0xC0:
+        return None
+    cmap_size = cmap_len * ((cmap_bits + 7) // 8) if cmap_type else 0
+    size = None
+    if img_type in (1, 2, 3):
+        size = 18 + id_len + cmap_size + w * h * ((bits + 7) // 8)
+    return w, h, bits, desc, size, img_type, id_len, cmap_len
+
+
+def describe_tga(h):
+    w, hgt, bits, desc, size, img_type, id_len, cmap_len = h
+    return (f"TGA type {img_type} {w}x{hgt} {bits}-bit, descriptor {desc:#04x}, "
+            f"id length {id_len}, colour map {cmap_len}, "
+            + (f"{size:,} bytes" if size else "RLE"))
 
 
 def probe_alt(path, report):
@@ -103,31 +122,48 @@ def probe_alt(path, report):
     out, used = lzss_decompress(data, 24, len(data))
     report.append(f"   decompressed from offset 24: {len(out):,} bytes, input used up to "
                   f"{used:,}, {time.time() - t:.0f} s")
-    # Walk the output: TGA after TGA, reporting anything that isn't one.
+
+    sig = b"TRUEVISION-XFILE"
+    pos = out.find(sig)
+    while pos >= 0:
+        report.append(f"   TGA 2.0 footer signature at {pos:,} (footer from {pos - 8:,}): "
+                      f"{out[pos - 8:pos + 18].hex(' ')}")
+        pos = out.find(sig, pos + 1)
+
+    # Every plausible TGA header, then the gaps between one image's end and
+    # the next header. A header can't start inside the previous image.
+    found = []
+    candidate = re.compile(rb"[\x00-\xff][\x00\x01][\x01\x02\x03\x09\x0a\x0b]", re.DOTALL)
     off = 0
-    count = 0
-    while off < len(out):
-        h = tga_header(out, off)
-        if h and h[4]:
-            w, hgt, bits, desc, size, img_type, id_len = h
-            report.append(f"   {off:>11,}: TGA {w}x{hgt} {bits}-bit, descriptor {desc:#04x}, "
-                          f"id length {id_len}, {size:,} bytes")
-            count += 1
-            off += size
-            continue
-        # Not a TGA: show it, then look for the next TGA header.
-        report.append(f"   {off:>11,}: not a TGA: {out[off:off + 48].hex(' ')}")
-        nxt = off + 1
-        while nxt < len(out) and not (out[nxt + 2:nxt + 3] == b"\x02" and tga_header(out, nxt)):
-            nxt += 1
-        if nxt >= len(out):
-            tail = out[off:]
-            report.append(f"   {off:>11,}: {len(tail):,} more bytes to the end, "
-                          f"{sum(1 for b in tail if b):,} nonzero; last 32: {tail[-32:].hex(' ')}")
+    while True:
+        m = candidate.search(out, off)
+        if not m:
             break
-        report.append(f"   skipped {nxt - off:,} bytes")
-        off = nxt
-    report.append(f"   TGA images: {count}")
+        p = m.start()
+        h = tga_header(out, p)
+        if h:
+            found.append((p, h))
+            if len(found) >= 400:
+                report.append("   stopped after 400 headers")
+                break
+            off = p + (h[4] or 18)
+            continue
+        off = p + 1
+    report.append(f"   plausible TGA headers: {len(found)}")
+    prev_end = 0
+    for p, h in found:
+        if p != prev_end:
+            gap = out[prev_end:p]
+            report.append(f"   {prev_end:>11,}: {p - prev_end:,} bytes before the next header, "
+                          f"{sum(1 for b in gap if b):,} nonzero; first 64: {gap[:64].hex(' ')}")
+            if len(gap) > 64:
+                report.append(f"                last 64: {gap[-64:].hex(' ')}")
+        report.append(f"   {p:>11,}: {describe_tga(h)}; header {out[p:p + 18].hex(' ')}")
+        if h[6]:
+            report.append(f"                id: {bytes(out[p + 18:p + 18 + h[6]])!r}")
+        prev_end = p + (h[4] or 18)
+    report.append(f"   {prev_end:>11,}: {len(out) - prev_end:,} bytes to the end; "
+                  f"last 64: {out[-64:].hex(' ')}")
 
 
 def ima_header_ok(b, channels):
@@ -204,6 +240,8 @@ def main():
     parser.add_argument("install", help="the game's install folder")
     parser.add_argument("--cd", help="the CD (or a copy of it), for music.snd")
     parser.add_argument("-o", "--out", default="botf-probe.txt", help="report file")
+    parser.add_argument("--only", nargs="+", metavar="FILE",
+                        help="probe only these files, e.g. --only alt.res")
     args = parser.parse_args()
     report = []
 
@@ -212,6 +250,8 @@ def main():
 
     for name, probe in [("alt.res", probe_alt), ("sfx.snd", probe_snd),
                         ("english.snd", probe_snd), ("music.snd", probe_snd)]:
+        if args.only and name not in [n.lower() for n in args.only]:
+            continue
         path = first(name)
         if path is None:
             report.append(f"== {name}: not found")
@@ -223,7 +263,7 @@ def main():
             report.append(f"   failed: {type(e).__name__}: {e}")
 
     res = first("stbof.res")
-    if res is not None:
+    if res is not None and (not args.only or "music.tbl" in [n.lower() for n in args.only]):
         try:
             with zipfile.ZipFile(res) as z:
                 name = next(n for n in z.namelist() if n.lower() == "music.tbl")

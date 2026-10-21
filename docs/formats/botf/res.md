@@ -35,7 +35,7 @@ German one 6,014), no folders, names in lower case. 299 entries are stored
 | `.vtx` | 2 | 10 KB | `laser.vtx`, `rlit.vtx` | combat effects |
 | `.dic` | 1 | 82 KB | `lexicon.dic` | text |
 | `.smt`, `.tfd` | 1 each | | `objstruc.smt`, `tfdesign.tfd` | |
-| `.tbl` | 1 | 7 KB | `music.tbl` | probably maps game situations to `music.snd`'s pieces |
+| `.tbl` | 1 | 7 KB | `music.tbl` | binary, 7,323 bytes; starts with `u32` values all 0 or 1. Probably which of `music.snd`'s pieces may play in which situation |
 | `.txt` | 1 | 8 KB | `credits.txt` | |
 
 ## Races

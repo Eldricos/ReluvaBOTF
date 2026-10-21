@@ -1,9 +1,8 @@
 # Star Trek: Birth of the Federation: `alt.res`
 
-Status: **compression understood; layout after the first image unconfirmed.**
+Status: **compression understood; not every image's header read yet.**
 Source: the first 8 KB and last 4 KB of `alt.res` (`scripts/botf_sample.py`),
-October 2026. `scripts/botf_probe.py` decompresses the whole file and lists
-what it holds, to check the rest.
+then the whole file decompressed by `scripts/botf_probe.py`, October 2026.
 
 Not a zip, unlike `stbof.res`. All values little-endian.
 
@@ -15,9 +14,8 @@ offset 24  LZSS stream
            zero padding to the end of the file (at least the last 4 KB)
 ```
 
-The file is 12,992,536 bytes, so 9,994 bytes follow `20 + 12,982,522`.
-Whether the stream ends there, and whether 31 is the number of images, is
-what the probe checks.
+The file is 12,992,536 bytes, so 9,994 bytes follow `20 + 12,982,522`;
+656 of them aren't zero, so the stream may run into them.
 
 ## Compression
 
@@ -54,8 +52,21 @@ How it was worked out:
 
 ## Contents
 
-The stream starts with an uncompressed TGA: type 2, no colour map, 800x600,
-16-bit (`A1R5G5B5`), descriptor `0x01` (one attribute bit, rows from the
-bottom up). That is 960,018 bytes; 31 of them would be about 29.8 MB, which
-fits the 13 MB stream for mostly black pictures. Presumably full-screen
-backgrounds (the "alternate" set to `stbof.res`'s).
+Decompressing everything from offset 24 to the end of the file gives
+29,773,558 bytes. 31 full-screen images of 960,018 bytes each make
+29,760,558, so the count at offset 20 is the number of images, and 13,000
+bytes are something else: headers or footers the plain images don't have,
+or the padding at the end decoded as if it were data.
+
+The images are uncompressed TGAs: type 2, no colour map, 800x600, 16-bit
+(`A1R5G5B5`), descriptor `0x01` (one attribute bit, rows from the bottom
+up), 960,018 bytes. Presumably full-screen backgrounds (an "alternate" set
+to `stbof.res`'s).
+
+Not all of them are that simple. A first pass, which only recognised plain
+type-2 headers without an image id, found such headers at 0, 2,880,188,
+3,840,206 and 10,560,198 in the decompressed data. 2,880,188 is three images
+plus 134 bytes, so the second image takes 960,152 bytes, perhaps a 134-byte
+image id. A TGA 2.0 footer signature (`TRUEVISION-XFILE.`) follows the image
+at 10,560,198, so some images also have a footer. The probe now accepts any
+TGA header to list them all.
