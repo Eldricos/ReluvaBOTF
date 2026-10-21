@@ -20,7 +20,7 @@ uint32_t fieldBytes(const Field& f) {
     switch (f.type) {
     case F::Text: return f.size;
     case F::U8: return f.size;
-    case F::U16: return 2;
+    case F::U16: return 2 * f.size;
     case F::U32: return 4;
     case F::F32: return 4;
     case F::F64: return 8;
@@ -32,8 +32,9 @@ uint32_t u32(const uint8_t* p) { return uint32_t(p[0] | p[1] << 8 | p[2] << 16) 
 
 } // namespace
 
-// Fields are listed only where the evidence is in tables.md; the rest of
-// each record shows as bytes.
+// Fields are listed only where the evidence is in tables.md (the numbers:
+// matched against the game's own screens in a recording); the rest of each
+// record shows as bytes.
 const std::vector<TableLayout>& tableLayouts() {
     static const std::vector<TableLayout> layouts = {
         {"race.rst", "racedesc.rst", C::U16AtStart, 2, 108,
@@ -46,7 +47,16 @@ const std::vector<TableLayout>& tableLayouts() {
          {{"name", 0, F::Text, 40},
           {"class", 40, F::Text, 20},
           {"description", 84, F::U32},
-          {"model", 88, F::Text, 4}},
+          {"model", 88, F::Text, 4},
+          {"beam weapons", 112, F::U32},
+          {"beam damage, each", 120, F::U32},
+          {"torpedoes", 132, F::U32},
+          {"torpedo damage, each", 140, F::U32},
+          {"shields", 148, F::U32},
+          {"hit points", 168, F::U32},
+          {"range (0 medium, 1 long)", 276, F::U16},
+          {"build cost", 284, F::U16},
+          {"maintenance cost", 286, F::U16}},
          0, 2},
         {"techtree.tec", "techdesc.tec", C::FileSize, 0, 72,
          {{"name", 0, F::Text, 30},
@@ -62,8 +72,13 @@ const std::vector<TableLayout>& tableLayouts() {
          {{"name", 0, F::Text, 40},
           {"plural", 40, F::Text, 48},
           {"picture", 88, F::Text, 8},
+          {"build cost", 120, F::U16},
+          {"energy maintenance", 124, F::U16},
+          {"population maintenance", 128, F::U16},
+          {"output (6 values)", 134, F::U16, 6},
+          {"second bonus (6 values)", 146, F::U16, 6},
           {"description", 172, F::U32}},
-         0, 3},
+         0, 8},
     };
     return layouts;
 }
@@ -111,7 +126,12 @@ std::string DataTable::value(size_t r, const Field& f) const {
             s += (i ? " " : "") + std::to_string(p[i]);
         return s;
     }
-    case F::U16: return std::to_string(p[0] | p[1] << 8);
+    case F::U16: {
+        std::string s;
+        for (uint32_t i = 0; i < f.size; ++i)
+            s += (i ? " " : "") + std::to_string(p[2 * i] | p[2 * i + 1] << 8);
+        return s;
+    }
     case F::U32: return std::to_string(u32(p));
     case F::F32: {
         float v;

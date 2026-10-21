@@ -310,7 +310,7 @@ void testDataTable() {
 
     // Without descriptions, and with fields that leave gaps.
     const TableLayout gaps = {"gaps.tbl", nullptr, TableLayout::Count::FileSize, 0, 8,
-                              {{"value", 2, F::U16}, {"real", 4, F::F32}}, 0, -1};
+                              {{"value", 2, F::U16}, {"real", 4, F::F32}, {"pair", 2, F::U16, 3}}, 0, -1};
     Bytes two(16, 0);
     two[2] = 0x34;
     two[3] = 0x12;
@@ -318,6 +318,7 @@ void testDataTable() {
     std::memcpy(&two[4], &half, 4);
     CHECK(!table.load(gaps, two));
     CHECK(table.count() == 2 && table.value(0, gaps.fields[0]) == "4660" && table.value(0, gaps.fields[1]) == "0.5");
+    CHECK(table.value(0, gaps.fields[2]) == "4660 0 16128"); // a U16 array: 0x1234, then the float's bytes
     CHECK(table.description(0).empty());
     CHECK(table.unknownRanges() == (std::vector<std::pair<uint32_t, uint32_t>>{{0, 2}}));
 
@@ -331,7 +332,7 @@ void testDataTable() {
     for (const TableLayout& l : tableLayouts())
         for (const Field& f : l.fields)
             CHECK(f.offset + (f.type == F::Text || f.type == F::U8 ? f.size : f.type == F::F64 ? 8u
-                                                                    : f.type == F::U16    ? 2u : 4u) <=
+                                                                    : f.type == F::U16    ? 2u * f.size : 4u) <=
                   l.recordSize);
 }
 
