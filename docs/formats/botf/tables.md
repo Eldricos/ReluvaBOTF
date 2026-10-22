@@ -121,11 +121,19 @@ end) and checked against the data, as follows:
 - the roles fit the names (every scout 0, colony ship 5, outpost 6, starbase
   7, troop transport 9, monster 8);
 - production is non-zero only for colony ships and troop transports;
-- stealth is highest for the Romulan warbirds, which cloak.
+- stealth is 4 or 6 exactly for the ships the manual says can cloak: every
+  Romulan starship but the colony ships and troop transports (0), and the
+  Klingon Birds of Prey (B'rel, K'Vort); 0-2 for the rest;
+- scan range is 1 for scouts, which the manual says have "more accurate
+  sensors than most other vessels", and for outposts, 2 for starbases;
+- the Klingons' colony ships and troop transports are the only ones with
+  weapons, as the manual says.
 
 Accuracy, multipliers, penetration, defense, agility, firing arc and the
 weapon ranges are combat values: the screens recorded don't show them, so
-their meanings are UE's until ship combat is observed.
+their meanings are UE's until ship combat is observed. The manual says a
+beginning colony ship terraforms 100 points a turn; how that follows from
+its production of 1 isn't known.
 
 The ship list's stats for five Federation classes, and their records:
 
@@ -371,6 +379,10 @@ is the number of its wording here.
 | 7 `.wtf` | 578 to 2,913 | AI weights, colonisation values per race |
 
 ## Other sources
+
+The game's manual (First Edition, May 1999; the scan on the Internet
+Archive, item `Star_Trek_THE_NEXT_GENERATION_BIRTH_OF_THE_FEDERATION`) was
+used to check what fields mean, as noted with each.
 
 Fields marked as from "UE" come from the Ultimate Editor, the BotF modding
 community's editor (Java, GPL-2.0, by DCER and others):
