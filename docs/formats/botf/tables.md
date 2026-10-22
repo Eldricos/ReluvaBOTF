@@ -4,8 +4,9 @@ Status: **record layouts known for races, ships, technologies, research
 fields, buildings, planets, environments, star and ship names, ships'
 requirements and races, and planet values**; their names, pictures, models and descriptions read;
 ships' combat values and costs, and buildings' costs, maintenance and
-output, matched against the game's screens. Many numeric fields still to
-work out. The other tables not started.
+output, matched against the game's screens; the rest of the ship and
+building records from the modding community's editor, checked against the
+data (see "Other sources"). Some numeric fields still to work out.
 Reader: `src/engines/botf/data_table.cpp` (one `TableLayout` per table);
 the viewer's Data page shows every record with its known fields and the
 bytes not worked out yet.
@@ -60,26 +61,71 @@ No header: 125 records of 288 bytes (the file's size / 288).
 
 ```
 0    char[40]  name                  "Strike Cruiser"
-40   char[20]  class                 "Keldon"
+40   char[44]  class                 "Keldon"
 84   u32       description           offset in shipdesc.sst
-88   char[4]   model                 "ch3": the ch3_a/_b/_c .hob models and their .gif textures
-108  u32       ?                     beam weapons' (125, 115, 140 ...; 0 without beams): accuracy?
+88   char[14]  model                 "ch3": the ch3_a/_b/_c .hob models and their .gif textures
+102  u16       number                the record's own number, in every record
+104  u16       role                  0 scout, 1 destroyer, 2 cruiser, 3 strike cruiser, 4 command
+                                     ship, 5 colony ship, 6 outpost, 7 starbase, 8 monster, 9 troop transport
+106  u16       name group            in shipname.bin
+108  u32       beam accuracy         (125, 115, 140 ...; 0 without beams)
 112  u32       beam weapons          how many
-116  u32       1 in every ship
+116  u32       beam damage multiplier   1 in every ship
 120  u32       beam damage           each
-128  u32       ?                     torpedoes' (114, 112, 121 ...; 0 without torpedoes)
+124  u32       beam shield penetration  0 in every ship
+128  u32       torpedo accuracy
 132  u32       torpedoes             how many
-136  u32       1 in every ship
+136  u32       torpedo damage multiplier   1 in every ship
 140  u32       torpedo damage        each
+144  u32       shield level          0 in every ship
 148  u32       shields
+152  u32       shield recharge       rises with the shields
+156  u32       offensive strength    for the AI, worked out from the weapons
+160  u32       defensive strength    for the AI, worked out from shields, hull and defense
+164  u32       ?                     0 in every ship
 168  u32       hit points
+172  u32       defense               rises through each line of classes (35, 75 ...)
+176  u32       stealth               2 for most later classes; 6 for the Romulan warbirds (cloaking)
+180  u32 x5    extra beam weapon     how many, accuracy, multiplier, damage, penetration: used
+                                     only by the Galaxy II (1, 150, 8, 80, 12)
+200  u32       ?                     1 for the Galaxy II only
+204  8 bytes   ?                     0
+212  f64       agility               100.0; more for the Federation's escorts (120-200); 0 for
+                                     outposts and starbases
+220  f64       firing arc            degrees: 90 to 360
+228  f64       beam range
+236  f64       torpedo minimum range
+244  f64       torpedo range
+252  f64       extra beam range
 260  f64       range                 0 short, 1 medium, 2 long
 268  f64       speed                 1, 2, 3
-278  u16       ?                     400 for the London Class transport, 1 for the colony ship, 0 for warships: what it carries?
-282  u16       10 in the ships seen
+276  u16       scan range            0; 1 for scouts and outposts, 2 for starbases
+278  u16       production            colony ships 1 or 3 (terraforming), troop transports 400 or
+                                     1600 (ground combat), 0 for the rest
+280  u16       race                  in race.rst
+282  u8, u8    beam and torpedo name prefixes; used only by a patched executable
 284  u16       build cost            industry
 286  u16       maintenance cost
 ```
+
+Where these came from: build cost, maintenance, beams, torpedoes, shields,
+hit points, range and speed were matched against the game's screens (below).
+The rest are from the Ultimate Editor's reader (see "Other sources" at the
+end) and checked against the data, as follows:
+- the number is the record's position in all 125 records;
+- the race agrees with `shiprace.sst`'s blocks in all 125 (records 0-19 race
+  0, 20-44 race 1 ..., the Talarians' ship, 110, race 28);
+- every name group exists in `shipname.bin`, and the names fit the class:
+  the Nebula class's group starts "USS Nebula", the Miranda's "USS Miranda",
+  the Oberth's "USS Oberth", the Ambassador's "USS Ambassador";
+- the roles fit the names (every scout 0, colony ship 5, outpost 6, starbase
+  7, troop transport 9, monster 8);
+- production is non-zero only for colony ships and troop transports;
+- stealth is highest for the Romulan warbirds, which cloak.
+
+Accuracy, multipliers, penetration, defense, agility, firing arc and the
+weapon ranges are combat values: the screens recorded don't show them, so
+their meanings are UE's until ship combat is observed.
 
 The ship list's stats for five Federation classes, and their records:
 
@@ -90,11 +136,6 @@ The ship list's stats for five Federation classes, and their records:
 | Oberth scout (35) | 490 | 19 / 110 | 2 x 15 | 2 x 28 | Long / 1 |
 | London transport (39) | 1030 | 43 / 110 | none | none | Medium / 1 |
 | Ambassador cruiser (43) | 3100 | 153 / 410 | 7 x 25 | 5 x 44 | Medium / 1 |
-
-Not yet named: 100 differs in every ship; 152, 156, 160 and 172 vary by
-ship (152 rises with the shields: 10, 26, 13, 13, 45); 212-259 are six more
-`f64` values (100.0, 270.0 or 360.0, 300.0-700.0 ...), zero for unarmed
-ships; several other fields are constant.
 
 Range and speed (the last two `f64`) and the maintenance cost were
 confirmed on the whole Let's Play series (38 parts): every ship class whose
@@ -130,27 +171,70 @@ number (`u8`, 0-6).
 ```
 0      u32  count (318)
 4      u32  where the records end (56,708 = 740 + 318 x 176)
-8      ...  lists of record offsets (into this file), probably groups of buildings
+8      ...  counters per research field, a map of buildings by research field and
+            level (record offsets into this file), then per major race a 384-bit
+            mask of buildings (6 u64): UE calls it the ignore list
 740    318 records of 176 bytes
-56708  1,272 more bytes of record offsets
+56708  318 u32: each building's record offset, by building number
 ```
 
 A record:
 
 ```
 0    char[40]  name                  "Primitive Farm"
-40   char[48]  plural                "Primitive Farms"
+40   char[40]  plural                "Primitive Farms"
+80   u16       number                each building's own number, 0-317 (not the record's position)
+82   u16       upgrade of            the number of the building it replaces; 32767 for none
+84   4 bytes   ?
 88   char[8]   picture               "T0fm0"
-120  u16       build cost            industry
+96   5 bytes   ?
+101  u8        research field needed    as in tecfield.tec
+102  u8        technology level needed
+103  u8        races that can't build it   a bit per major race (bit 1: the Federation)
+104  u64       resident races needed    a bit per race; 0x7ffffffff (all 35) for none
+112  u8        system status needed     0 home system, 1 native member, 2 non-native member,
+                                        3 subjugated, 4 affiliated, 5 independent minor,
+                                        6 conquered home; 9 for none
+113  u8        planet or star needed in the system   8 for none
+114  u8        output type              which of edifbnft.bst's 45 wordings the output takes:
+                                        0 " Food", 2 " Energy", 13 " Industry", 17 " Anti-Ship
+                                        Defenses", 36 " Morale", 37 "% ground defense" ...
+115  u8        build limit              0 none, 1 one per system, 2 one per empire
+116  u8        group                    the main buildings' line per race (farms, factories ...);
+                                        34 for the rest
+117  u8        category                 0 research, 1 industry, 2 food, 3 energy, 4 defense
+118  u16       ?                        0
+120  u16       build cost               industry
+122  u16       ?                        0
 124  u16       energy maintenance
+126  u16       ?                        0
 128  u16       population maintenance
-134  u16[6]    output                per race: the 5 major races in race.rst's order, then one more
-146  u16[6]    second bonus          per race, the same way: Private Farms' +1 morale (1 six times)
-172  u32       description           offset in edifdesc.bst
+130  i16       morale                   1 for the academies, -1 for the Labor Camp
+132  u16       ?                        0
+134  i16[6]    output                   per race: the 5 major races in race.rst's order, then one more
+146  i16[6]    unrest bonus             per race, the same way: Private Farms' 1 six times, the Labor
+                                        Camp's -1 for the Cardassians
+158  14 bytes  ?                        0
+172  u32       description              offset in edifdesc.bst
 ```
 
-Each building type appears once per race that can build it (the first five
-records are all "Primitive Farm").
+The records are in the order the tool wrote them, not by number. The table of
+offsets after the records gives each building's record by number: entry *n*
+is the file offset of the record whose number is *n*, for all 318.
+
+Build cost, maintenance and output were matched against the game's screens
+(below). The rest are from the Ultimate Editor's reader, checked against the
+data: the numbers are 0-317 with none missing, 206 of the 208 upgrades point
+at the previous level of the same line (Type 4 Automated Farm, 147, upgrades
+146; the other two are scanners that skip levels),
+and where only one race may build a building and the outputs differ, the
+biggest output is that race's in all 10 cases (Starfleet Academy 0 50 0 0 0 0,
+Federation only; Tactical College 0 0 0 45 0 0, Klingons only; Naval Academy
+0 0 0 0 35 0, Romulans only). The output type is the index of the output's
+wording in `edifbnft.bst`, which the screens confirm: the Orbital Battery's
+17 is " Anti-Ship Defenses" (+80 on screen), the Bunker Network's 37 "% ground
+defense" (+50%), Martial Law's 36 " Morale" (+7), Starfleet Academy's 16
+" Ship experience" (+50).
 
 The screens shown and the records (Federation buildings):
 
@@ -270,7 +354,8 @@ other than gas giants, 3 sizes each), and 9 values.
 45 wordings for building output (" Food", "% food", " Energy", "% total
 credits", " Ship experience", " Anti-Ship Defenses" ...): a `u32` (669: where
 the offset table starts), the zero-terminated strings, then 45 `u32`
-offsets of the strings.
+offsets of the strings. A building's output type (`edifice.bst` offset 114)
+is the number of its wording here.
 
 ## Not worked out yet
 
@@ -284,3 +369,17 @@ offsets of the strings.
 | `aibldreq.bin`, `bldset1-5.bin` | 1,848, 280-792 | AI building rules |
 | `combat.bin`, `converse.bin` | 62,500, 16,714 | |
 | 7 `.wtf` | 578 to 2,913 | AI weights, colonisation values per race |
+
+## Other sources
+
+Fields marked as from "UE" come from the Ultimate Editor, the BotF modding
+community's editor (Java, GPL-2.0, by DCER and others):
+<https://gitlab.com/stbotf/ultimate-editor>, read at commit `7ee45c4b`
+(July 2023), October 2026. Only the layouts were taken from it (offsets,
+sizes, what its authors call each field); no code was copied. Its knowledge
+comes from two decades of the community's work, including reading the game's
+executable, discussed on the Armada Fleet Command forums
+(<https://www.armadafleetcommand.com/onscreen/botf/>). Every field taken from
+it was checked against the data before being listed here, and the check is
+given with the field; a meaning that the data can't check (most combat
+values) says so.

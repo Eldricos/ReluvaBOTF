@@ -20,7 +20,8 @@ uint32_t fieldBytes(const Field& f) {
     switch (f.type) {
     case F::Text: return f.size;
     case F::U8: return f.size;
-    case F::U16: return 2 * f.size;
+    case F::U16:
+    case F::S16: return 2 * f.size;
     case F::U32: return 4 * f.size;
     case F::F32: return 4;
     case F::F64: return 8;
@@ -45,17 +46,47 @@ const std::vector<TableLayout>& tableLayouts() {
          0, 2},
         {"shiplist.sst", "shipdesc.sst", C::FileSize, 0, 288,
          {{"name", 0, F::Text, 40},
-          {"class", 40, F::Text, 20},
+          {"class", 40, F::Text, 44},
           {"description", 84, F::U32},
-          {"model", 88, F::Text, 4},
+          {"model", 88, F::Text, 14},
+          {"number", 102, F::U16},
+          {"role (0 scout, 1 destroyer, 2 cruiser, 3 strike cruiser, 4 command ship, 5 colony ship, 6 outpost, "
+           "7 starbase, 8 monster, 9 troop transport)",
+           104, F::U16},
+          {"name group (shipname.bin)", 106, F::U16},
+          {"beam accuracy", 108, F::U32},
           {"beam weapons", 112, F::U32},
+          {"beam damage multiplier", 116, F::U32},
           {"beam damage, each", 120, F::U32},
+          {"beam shield penetration", 124, F::U32},
+          {"torpedo accuracy", 128, F::U32},
           {"torpedoes", 132, F::U32},
+          {"torpedo damage multiplier", 136, F::U32},
           {"torpedo damage, each", 140, F::U32},
+          {"shield level", 144, F::U32},
           {"shields", 148, F::U32},
+          {"shield recharge", 152, F::U32},
+          {"offensive strength, for the AI", 156, F::U32},
+          {"defensive strength, for the AI", 160, F::U32},
           {"hit points", 168, F::U32},
+          {"defense", 172, F::U32},
+          {"stealth", 176, F::U32},
+          {"extra beam weapons", 180, F::U32},
+          {"extra beam accuracy", 184, F::U32},
+          {"extra beam damage multiplier", 188, F::U32},
+          {"extra beam damage, each", 192, F::U32},
+          {"extra beam shield penetration", 196, F::U32},
+          {"agility", 212, F::F64},
+          {"firing arc, degrees", 220, F::F64},
+          {"beam range", 228, F::F64},
+          {"torpedo minimum range", 236, F::F64},
+          {"torpedo range", 244, F::F64},
+          {"extra beam range", 252, F::F64},
           {"range (0 short, 1 medium, 2 long)", 260, F::F64},
           {"speed", 268, F::F64},
+          {"scan range", 276, F::U16},
+          {"production (colony ships: terraforming; transports: ground combat)", 278, F::U16},
+          {"race (race.rst)", 280, F::U16},
           {"build cost", 284, F::U16},
           {"maintenance cost", 286, F::U16}},
          0, 2},
@@ -71,15 +102,28 @@ const std::vector<TableLayout>& tableLayouts() {
         {"tecfield.tec", nullptr, C::U16AtStart, 2, 41, {{"name", 0, F::Text, 40}, {"number", 40, F::U8}}, 0, -1},
         {"edifice.bst", "edifdesc.bst", C::U32AtStart, 740, 176,
          {{"name", 0, F::Text, 40},
-          {"plural", 40, F::Text, 48},
+          {"plural", 40, F::Text, 40},
+          {"number", 80, F::U16},
+          {"upgrade of (32767: none)", 82, F::U16},
           {"picture", 88, F::Text, 8},
+          {"research field needed (tecfield.tec)", 101, F::U8},
+          {"technology level needed", 102, F::U8},
+          {"races that can't build it, a bit each", 103, F::U8},
+          {"resident races needed, a bit each (low, high)", 104, F::U32, 2},
+          {"system status needed (0 home system, 1 native member, 2 non-native member, 3 subjugated, ...)", 112, F::U8},
+          {"planet or star needed in the system", 113, F::U8},
+          {"output type (its wording in edifbnft.bst)", 114, F::U8},
+          {"build limit", 115, F::U8},
+          {"group", 116, F::U8},
+          {"category (0 research, 1 industry, 2 food, 3 energy, 4 defense)", 117, F::U8},
           {"build cost", 120, F::U16},
           {"energy maintenance", 124, F::U16},
           {"population maintenance", 128, F::U16},
-          {"output, per race (5 major races, then ?)", 134, F::U16, 6},
-          {"second bonus, per race", 146, F::U16, 6},
+          {"morale", 130, F::S16},
+          {"output, per race (5 major races, then ?)", 134, F::S16, 6},
+          {"unrest bonus, per race", 146, F::S16, 6},
           {"description", 172, F::U32}},
-         0, 8},
+         0, 21},
         {"planet.pst", nullptr, C::U16AtStart, 260, 76,
          {{"name", 0, F::Text, 40},
           {"animation", 40, F::Text, 12},
@@ -154,6 +198,12 @@ std::string DataTable::value(size_t r, const Field& f) const {
         std::string s;
         for (uint32_t i = 0; i < f.size; ++i)
             s += (i ? " " : "") + std::to_string(p[2 * i] | p[2 * i + 1] << 8);
+        return s;
+    }
+    case F::S16: {
+        std::string s;
+        for (uint32_t i = 0; i < f.size; ++i)
+            s += (i ? " " : "") + std::to_string(int16_t(p[2 * i] | p[2 * i + 1] << 8));
         return s;
     }
     case F::U32: {

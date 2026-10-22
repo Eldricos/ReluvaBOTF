@@ -323,6 +323,10 @@ void testDataTable() {
     CHECK(table.value(0, gaps.fields[3]) == "305397760 1056964608"); // 0x12340000, 0x3f000000
     CHECK(table.description(0).empty());
     CHECK(table.unknownRanges().empty()); // "words" covers bytes 0-7
+    const TableLayout signedPair = {"gaps.tbl", nullptr, TableLayout::Count::FileSize, 0, 8, {{"pair", 0, F::S16, 2}}, 0, -1};
+    Bytes negative = {0xff, 0xff, 0x07, 0x00, 0, 0, 0, 0};
+    CHECK(!table.load(signedPair, negative));
+    CHECK(table.value(0, signedPair.fields[0]) == "-1 7");
     const TableLayout partial = {"gaps.tbl", nullptr, TableLayout::Count::FileSize, 0, 8, {{"value", 2, F::U16}}, 0, -1};
     CHECK(!table.load(partial, two));
     CHECK(table.unknownRanges() == (std::vector<std::pair<uint32_t, uint32_t>>{{0, 2}, {4, 8}}));
@@ -337,7 +341,7 @@ void testDataTable() {
     for (const TableLayout& l : tableLayouts())
         for (const Field& f : l.fields)
             CHECK(f.offset + (f.type == F::Text || f.type == F::U8 ? f.size : f.type == F::F64 ? 8u
-                                                                    : f.type == F::U16    ? 2u * f.size
+                                                                    : f.type == F::U16 || f.type == F::S16 ? 2u * f.size
                                                                     : f.type == F::U32    ? 4u * f.size : 4u) <=
                   l.recordSize);
 }
