@@ -327,6 +327,19 @@ void testDataTable() {
     Bytes negative = {0xff, 0xff, 0x07, 0x00, 0, 0, 0, 0};
     CHECK(!table.load(signedPair, negative));
     CHECK(table.value(0, signedPair.fields[0]) == "-1 7");
+    const TableLayout signedWord = {"gaps.tbl", nullptr, TableLayout::Count::FileSize, 0, 8, {{"word", 0, F::S32}}, -1, -1};
+    CHECK(!table.load(signedWord, Bytes{0xfe, 0xff, 0xff, 0xff, 0, 0, 0, 0}));
+    CHECK(table.value(0, signedWord.fields[0]) == "-2");
+    CHECK(table.name(0) == "0"); // no name field: the record's number
+
+    // Record names from a fixed list, or from the header (.wtf), as 4-byte strings at 2.
+    const TableLayout listed = {"gaps.tbl", nullptr, TableLayout::Count::FileSize, 0, 4, {}, -1, -1, {"First"}};
+    CHECK(!table.load(listed, Bytes(8, 0)));
+    CHECK(table.name(0) == "First" && table.name(1) == "1");
+    const TableLayout headed = {"gaps.tbl", nullptr, TableLayout::Count::FileSize, 10, 4, {}, -1, -1, {}, 2, 4};
+    Bytes withNames = {9, 9, 'A', 'b', 0, 0, 'C', 'd', 'e', 'f', 1, 2, 3, 4, 5, 6, 7, 8};
+    CHECK(!table.load(headed, withNames));
+    CHECK(table.count() == 2 && table.name(0) == "Ab" && table.name(1) == "Cdef");
     const TableLayout partial = {"gaps.tbl", nullptr, TableLayout::Count::FileSize, 0, 8, {{"value", 2, F::U16}}, 0, -1};
     CHECK(!table.load(partial, two));
     CHECK(table.unknownRanges() == (std::vector<std::pair<uint32_t, uint32_t>>{{0, 2}, {4, 8}}));
@@ -342,7 +355,7 @@ void testDataTable() {
         for (const Field& f : l.fields)
             CHECK(f.offset + (f.type == F::Text || f.type == F::U8 ? f.size : f.type == F::F64 ? 8u
                                                                     : f.type == F::U16 || f.type == F::S16 ? 2u * f.size
-                                                                    : f.type == F::U32    ? 4u * f.size : 4u) <=
+                                                                    : f.type == F::U32 || f.type == F::S32 ? 4u * f.size : 4u) <=
                   l.recordSize);
 }
 

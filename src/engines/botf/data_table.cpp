@@ -22,7 +22,8 @@ uint32_t fieldBytes(const Field& f) {
     case F::U8: return f.size;
     case F::U16:
     case F::S16: return 2 * f.size;
-    case F::U32: return 4 * f.size;
+    case F::U32:
+    case F::S32: return 4 * f.size;
     case F::F32: return 4;
     case F::F64: return 8;
     }
@@ -31,18 +32,45 @@ uint32_t fieldBytes(const Field& f) {
 
 uint32_t u32(const uint8_t* p) { return uint32_t(p[0] | p[1] << 8 | p[2] << 16) | uint32_t(p[3]) << 24; }
 
+// Tables that come several to a layout: the starting buildings of each era
+// (bldset1-5.bin) and each major race's colonisation weights (?colval.wtf).
+std::vector<TableLayout> withRepeats(std::vector<TableLayout> layouts) {
+    static const char* const bldsets[] = {"bldset1.bin", "bldset2.bin", "bldset3.bin", "bldset4.bin", "bldset5.bin"};
+    for (const char* file : bldsets)
+        layouts.push_back({file, nullptr, C::FileSize, 0, 8,
+                           {{"race", 0, F::S16}, {"building (edifice.bst's number)", 2, F::S16}, {"how many", 4, F::S32}},
+                           0, -1});
+    static const char* const colvals[] = {"ccolval.wtf", "hcolval.wtf", "fcolval.wtf", "kcolval.wtf", "rcolval.wtf"};
+    static const char* const columns[] = {"Worthless",        "Dilithium",      "Food",     "Energy",     "Poor_Industry",
+                                          "Average_Industry", "Prime_Industry", "Distance", "Trade",      "Near_Minor",
+                                          "Gal_Density",      "Military",       "Rnd"};
+    for (const char* file : colvals) {
+        TableLayout l{file, nullptr, C::FileSize, 474, 104, {}, -1, -1, {}, 441, 33};
+        for (uint32_t i = 0; i < 13; ++i)
+            l.fields.push_back({columns[i], 8 * i, F::F64});
+        layouts.push_back(std::move(l));
+    }
+    return layouts;
+}
+
 } // namespace
 
 // Fields are listed only where the evidence is in tables.md (the numbers:
 // matched against the game's own screens in a recording); the rest of each
 // record shows as bytes.
 const std::vector<TableLayout>& tableLayouts() {
-    static const std::vector<TableLayout> layouts = {
+    static const std::vector<TableLayout> layouts = withRepeats({
         {"race.rst", "racedesc.rst", C::U16AtStart, 2, 108,
          {{"name", 0, F::Text, 40},
           {"picture", 40, F::Text, 16},
           {"description", 60, F::U32},
-          {"attitude to the 5 major races", 72, F::U8, 5}},
+          {"home planet (planet.pst's number)", 64, F::S16},
+          {"starting population", 66, F::S16},
+          {"growth rate", 68, F::F32},
+          {"starting morale under each major race (5), then ?", 72, F::U8, 6},
+          {"dilithium at home (0, 1)", 78, F::S16},
+          {"unrest threshold", 84, F::S32},
+          {"ground combat multiplier", 104, F::F32}},
          0, 2},
         {"shiplist.sst", "shipdesc.sst", C::FileSize, 0, 288,
          {{"name", 0, F::Text, 40},
@@ -126,9 +154,14 @@ const std::vector<TableLayout>& tableLayouts() {
          0, 21},
         {"planet.pst", nullptr, C::U16AtStart, 260, 76,
          {{"name", 0, F::Text, 40},
-          {"animation", 40, F::Text, 12},
-          {"number", 54, F::U16},
-          {"size (0 small, 1 medium, 2 large)", 56, F::U16},
+          {"animation", 40, F::Text, 14},
+          {"number", 54, F::S16},
+          {"size (0 small, 1 medium, 2 large)", 56, F::S16},
+          {"terraforming points", 58, F::U16},
+          {"terraforming done", 60, F::U16},
+          {"food bonus (0, 310, 620: levels 0-2)", 62, F::S16},
+          {"energy bonus (0, 310, 620)", 64, F::S16},
+          {"growth bonus (0, 310, 620)", 66, F::S16},
           {"type (environ.est)", 72, F::U8},
           {"atmosphere (environ.est)", 73, F::U8}},
          0, -1},
@@ -144,10 +177,84 @@ const std::vector<TableLayout>& tableLayouts() {
          1, -1},
         {"shiprace.sst", nullptr, C::FileSize, 0, 4, {{"first ship (4294967295: none)", 0, F::U32}}, 0, -1},
         {"planspac.bin", nullptr, C::FileSize, 0, 40,
-         {{"planet type + 256 x size", 0, F::U32}, {"values (maximum population?)", 4, F::U32, 9}}, 0, -1},
+         {{"planet type (environ.est)", 0, F::U8},
+          {"size", 1, F::U8},
+          {"maximum population, by growth bonus level (3) x energy bonus level (3)", 4, F::S32, 9}},
+         -1, -1},
         {"planboni.bin", nullptr, C::FileSize, 0, 40,
-         {{"planet type + 256 x size", 0, F::U32}, {"bonus values", 4, F::U32, 9}}, 0, -1},
-    };
+         {{"planet type (environ.est)", 0, F::U8},
+          {"size", 1, F::U8},
+          {"bonus in 5% steps, by food bonus level (3) x energy bonus level (3)", 4, F::S32, 9}},
+         -1, -1},
+        {"racetech.tec", nullptr, C::FileSize, 1300, 108,
+         {{"race", 0, F::S16},
+          {"biotech level", 4, F::S16},
+          {"biotech research done", 8, F::S32},
+          {"computer level", 12, F::S16},
+          {"computer research done", 16, F::S32},
+          {"construction level", 20, F::S16},
+          {"construction research done", 24, F::S32},
+          {"energy level", 28, F::S16},
+          {"energy research done", 32, F::S32},
+          {"propulsion level", 36, F::S16},
+          {"propulsion research done", 40, F::S32},
+          {"weapons level", 44, F::S16},
+          {"weapons research done", 48, F::S32},
+          {"sociology level", 52, F::S16},
+          {"sociology research done", 56, F::S32},
+          {"buildings available at the start, a bit each by number", 60, F::U32, 12}},
+         0, -1},
+        {"morale.bin", nullptr, C::FileSize, 0, 20, {{"change, for each major race", 0, F::S32, 5}}, -1, -1,
+         {"Eliminate an empire", "Win a major battle", "Win a significant battle", "Win a minor battle",
+          "Lose a major battle", "Lose a significant battle", "Lose a minor battle", "Sign a membership",
+          "Subjugate a system", "Colonize a system", "Liberate a minor race", "Liberate natives",
+          "Lose the home system", "Lose a member system", "Lose a subjugated system", "Lose a system to rebellion",
+          "Bombard a system", "Declare war", "War declared on you", "Reject peace", "Break a treaty", "Sign peace",
+          "Sign an alliance"}},
+        {"intel.bin", nullptr, C::FileSize, 0, 96,
+         {{"espionage base", 0, F::S32},
+          {"sabotage base", 4, F::S32},
+          {"by target race (5)", 8, F::S32, 5},
+          {"by difficulty (simple, easy, normal, hard, impossible)", 28, F::S32, 5},
+          {"by morale level (rebellious ... fanatic)", 48, F::S32, 8},
+          {"by treaty (neutral, war, alliance, peace)", 80, F::S32, 4}},
+         -1, -1, {"Cardassians", "Federation", "Ferengi", "Klingons", "Romulans"}},
+        {"meplanet.bin", nullptr, C::FileSize, 0, 88,
+         {{"planet (planet.pst)", 0, F::Text, 40},
+          {"race", 40, F::Text, 40},
+          {"evolution level when colonised", 80, F::S32},
+          {"records for this race", 84, F::S32}},
+         0, -1},
+        {"aibldreq.bin", nullptr, C::FileSize, 0, 24,
+         {{"building (edifice.bst's number)", 0, F::S32},
+          {"population needed", 4, F::S32},
+          {"maximum population needed", 8, F::S32},
+          {"energy needed", 12, F::S32}},
+         0, -1},
+        // The .wtf tables name their own columns and rows: a u32 (1), u16
+        // columns, u16 rows, u32 values, 33-byte column names, 33-byte row
+        // names, then f64 values row by row.
+        {"aiempire.wtf", nullptr, C::FileSize, 474, 72,
+         {{"Default_Espionage_Tolerance", 0, F::F64},
+          {"Espionage_Tolerance_Turn_Delta", 8, F::F64},
+          {"Espionage_Tolerance_Incident_Delta", 16, F::F64},
+          {"Default_Raiding_Tolerance", 24, F::F64},
+          {"Raiding_Tolerance_Turn_Delta", 32, F::F64},
+          {"Raiding_Tolerance_Incident_Delta", 40, F::F64},
+          {"Default_Audience_Tolerance", 48, F::F64},
+          {"Audience_Tolerance_Turn_Delta", 56, F::F64},
+          {"Audience_Tolerance_Incident_Delta", 64, F::F64}},
+         -1, -1, {}, 309, 33},
+        {"aiminor.wtf", nullptr, C::FileSize, 1233, 56,
+         {{"Personality (0 warlike, 1 peaceful, 2 pacifist, 3 deceptive, 4 spiritual)", 0, F::F64},
+          {"Explorer (0 no, 1 yes)", 8, F::F64},
+          {"Cardassian_Hostility (0 enraged ... 4 neutral ... 8 worshipful)", 16, F::F64},
+          {"Federation_Hostility", 24, F::F64},
+          {"Ferengi_Hostility", 32, F::F64},
+          {"Klingon_Hostility", 40, F::F64},
+          {"Romulan_Hostility", 48, F::F64}},
+         -1, -1, {}, 243, 33},
+    });
     return layouts;
 }
 
@@ -212,6 +319,12 @@ std::string DataTable::value(size_t r, const Field& f) const {
             s += (i ? " " : "") + std::to_string(u32(p + 4 * i));
         return s;
     }
+    case F::S32: {
+        std::string s;
+        for (uint32_t i = 0; i < f.size; ++i)
+            s += (i ? " " : "") + std::to_string(int32_t(u32(p + 4 * i)));
+        return s;
+    }
     case F::F32: {
         float v;
         std::memcpy(&v, p, 4);
@@ -228,7 +341,20 @@ std::string DataTable::value(size_t r, const Field& f) const {
     return {};
 }
 
-std::string DataTable::name(size_t r) const { return value(r, layout_->fields[size_t(layout_->nameField)]); }
+std::string DataTable::name(size_t r) const {
+    if (r < layout_->recordNames.size())
+        return layout_->recordNames[r];
+    if (layout_->headerNameSize) {
+        const size_t at = layout_->headerNamesAt + r * layout_->headerNameSize;
+        if (at + layout_->headerNameSize > layout_->headerSize)
+            return std::to_string(r);
+        const char* p = reinterpret_cast<const char*>(data_.data() + at);
+        return text::windows1252ToUtf8(std::string_view(p, strnlen(p, layout_->headerNameSize)));
+    }
+    if (layout_->nameField < 0)
+        return std::to_string(r);
+    return value(r, layout_->fields[size_t(layout_->nameField)]);
+}
 
 std::string DataTable::description(size_t r) const {
     if (layout_->descriptionField < 0 || descriptions_.empty())

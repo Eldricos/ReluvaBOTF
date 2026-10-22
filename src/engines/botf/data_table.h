@@ -23,6 +23,7 @@ enum class FieldType {
     U16,  // `size` of them
     S16,  // `size` of them, signed
     U32,  // `size` of them
+    S32,  // `size` of them, signed
     F32,
     F64,
 };
@@ -31,7 +32,7 @@ struct Field {
     const char* name;
     uint32_t offset;
     FieldType type;
-    uint32_t size = 1; // Text: bytes; U8, U16, S16, U32: how many
+    uint32_t size = 1; // Text: bytes; U8, U16, S16, U32, S32: how many
 };
 
 struct TableLayout {
@@ -43,8 +44,12 @@ struct TableLayout {
     uint32_t headerSize;      // bytes before the first record
     uint32_t recordSize;
     std::vector<Field> fields;
-    int nameField = 0;        // index into fields
+    int nameField = 0;        // index into fields, or -1 for none
     int descriptionField = -1; // a U32 offset into the descriptions, or -1
+    // Names for records that hold none: a fixed list, or a list of
+    // fixed-size strings at an offset in the header (the .wtf tables).
+    std::vector<const char*> recordNames = {};
+    uint32_t headerNamesAt = 0, headerNameSize = 0;
 };
 
 // Every table worked out so far.

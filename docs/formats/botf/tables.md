@@ -1,12 +1,13 @@
 # Star Trek: Birth of the Federation: data tables
 
-Status: **record layouts known for races, ships, technologies, research
-fields, buildings, planets, environments, star and ship names, ships'
-requirements and races, and planet values**; their names, pictures, models and descriptions read;
-ships' combat values and costs, and buildings' costs, maintenance and
-output, matched against the game's screens; the rest of the ship and
-building records from the modding community's editor, checked against the
-data (see "Other sources"). Some numeric fields still to work out.
+Status: **record layouts known for 30 of the 35 tables**: races, ships,
+technologies, research fields, buildings, planets, environments, star and
+ship names, ships' requirements and races, planet values, starting
+technology and buildings, morale, intelligence, the AI's tables, and the
+speech groups. Ships' and buildings' main values were matched against the
+game's screens; the rest come from the modding community's editor and were
+checked against the data and the manual (see "Other sources"). Left:
+`ppgrowth.bin`, `meprvnum.bin`, `habit.bin`, `combat.bin`, and a few fields.
 Reader: `src/engines/botf/data_table.cpp` (one `TableLayout` per table);
 the viewer's Data page shows every record with its known fields and the
 bytes not worked out yet.
@@ -47,13 +48,25 @@ Federation, Ferengi, Klingons, Romulans, in that order) and 30 minor races.
 40   char[16]  picture               "cardn_02.tga"
 56   u32       6 in every race
 60   u32       description           offset in racedesc.rst
-64   u16, u16  ?                     e.g. 1069, 80
-68   f32       ?                     7.0 Cardassians, 10.0 Federation, 1.0, 0.7 ... for the minors
-72   u8[5]     attitude to the 5 major races, 0-100; each major race has 100
-               for itself (Cardassians 100 65 70 80 75; Federation 65 100 80 75 70)
-77   u8        106 in every race
-78   ...       not worked out; ends with a f32 between 0.1 and 2.0
+64   i16       home planet           planet.pst's number (Cardassians 1069, "Cardassia 1")
+66   i16       starting population   80; 85 Klingons, 70 Romulans
+68   f32       growth rate           7.0 Cardassians, 10.0 Federation, 8.0, 8.5, 6.75; 1.0, 0.7 ... minors
+72   u8[6]     starting morale under each major race's rule, then one more (106 in every race):
+               100 under its own (Cardassians 100 65 70 80 75; Federation 65 100 80 75 70)
+78   i16       dilithium at home     1 for the major races
+80   4 bytes   0
+84   i32       unrest threshold      20 for the major races
+88   i16, i16  ?                     0 0 for the major races; (-60, 3), (-30, 2) ... for minors
+92   12 bytes  leftovers
+104  f32       ground combat multiplier   Klingons 1.2, Cardassians 1.1, Romulans 1.0,
+                                          Federation 0.9, Ferengi 0.8
 ```
+
+From 64 on, from UE, checked: every home planet is a planet in planet.pst by
+its number; the morale values are 100 for each race under its own rule,
+which the morale levels below make "content"; the manual says "the Klingon
+Empire is quite effective in ground combat", and theirs is the highest
+multiplier.
 
 ## `shiplist.sst`: ship classes
 
@@ -164,7 +177,7 @@ order.
 42   char[6]   the field's short name   "bio", "comp", "cnst", "engy", "prop", "weap", ...
 55   u8        field                 0-6, as in tecfield.tec
 56   u8        level                 0-10
-60   u32       cost                  0, 0, 200, 1100, 4000, 9000 ... 81700 in biotech: rises with the level
+60   u64       cost                  0, 0, 200, 1100, 4000, 9000 ... 81700 in biotech: rises with the level
 68   u32       description           offset in techdesc.tec
 ```
 
@@ -179,9 +192,15 @@ number (`u8`, 0-6).
 ```
 0      u32  count (318)
 4      u32  where the records end (56,708 = 740 + 318 x 176)
-8      ...  counters per research field, a map of buildings by research field and
-            level (record offsets into this file), then per major race a 384-bit
-            mask of buildings (6 u64): UE calls it the ignore list
+8      i16[7]  how many buildings in each research field (57 11 56 56 3 3 132)
+22     2 bytes
+24     7 x {u32[11] the offset of each level's first record, i16[11] how many
+            at each level, 2 bytes}: the records are in order of research field,
+            then level
+500    5 x u64[6]: per major race, a bit per building number; UE calls it the
+            ignore list and writes it from the records' "can't build" bits,
+            but in the retail file 168 of those bits (all buildings 0-87)
+            aren't set here
 740    318 records of 176 bytes
 56708  318 u32: each building's record offset, by building number
 ```
@@ -226,7 +245,7 @@ A record:
 172  u32       description              offset in edifdesc.bst
 ```
 
-The records are in the order the tool wrote them, not by number. The table of
+The records are in order of research field and level, not by number. The table of
 offsets after the records gives each building's record by number: entry *n*
 is the file offset of the record whose number is *n*, for all 318.
 
@@ -304,8 +323,8 @@ ship in `shiplist.sst` (Cardassians 0, Federation 20, Ferengi 45, Klingons
 Groups of 30 names (6 or 7 for some, 1 for a transport, outpost or
 starbase), by race prefix: 1-11 Federation (`USS`), 12-21 Klingon (`IKC`),
 22-31 Romulan (`RNS`), 32-39 Ferengi (`FMS`), 40-49 Cardassian (`CDS`), 50
-outpost, 51 starbase, 52-61 others. Group 0 is "UPN Invalid". Which group a
-ship class takes its names from isn't known yet.
+outpost, 51 starbase, 52-61 others. Group 0 is "UPN Invalid". Each ship
+class names its group (`shiplist.sst` offset 106).
 
 ## `starname.bin`: star names
 
@@ -325,14 +344,27 @@ volcanic; 8 methane, 9 none, 10 oxygen rich, 11 sulfuric, 12 thin oxygen.
 
 ## `planet.pst`: planets
 
-A `u16` count (1,117) and leftovers to 260, then 76-byte records:
+```
+0    u16       count (1,117)
+2    8 x {i16 ?, f32 how common, i16 how many}: per planet type 0-7; how common is
+     environ.est's, and how many is the number of records of that type
+     (168 164 172 9 90 167 97 250), which come in type order
+66   leftovers to 260
+```
+
+Then 76-byte records:
 
 ```
 0    char[40]  name                  "1", "2" ... or "Mars"
-40   char[12]  animation             "aros.ani": its letters spell type, atmosphere and size
-54   u16       number                different in every record
-56   u16       size                  0 small, 1 medium, 2 large (the animations' s, m, l)
-62   u16[3]    ?                     each 0, 310 or 620
+40   char[14]  animation             "aros.ani": its letters spell type, atmosphere and size
+54   i16       number                1-6277, different in every record (not its position)
+56   i16       size                  0 small, 1 medium, 2 large (the animations' s, m, l)
+58   u16       terraforming points   (UE)
+60   u16       terraforming done     (UE)
+62   i16       food bonus            0, 310 or 620: levels 0, 1, 2 (UE)
+64   i16       energy bonus          the same way (UE)
+66   i16       growth bonus          the same way (UE)
+68   i32       0
 72   u8        type                  environ.est's 0-7
 73   u8        atmosphere            environ.est's 8-12
 ```
@@ -345,17 +377,18 @@ oxygen) ... for the atmosphere, then `s`, `m`, `l`.
 
 ## `planspac.bin` and `planboni.bin`: values per planet type and size
 
-Each 21 records of ten `u32`: a key, planet type + 256 x size (the 7 types
-other than gas giants, 3 sizes each), and 9 values.
+Each 21 records of 40 bytes: the planet type (`u8`) and size (`u8`), 2 zero
+bytes, then 9 `i32`. The 7 types other than gas giants, 3 sizes each; a type
+with no record can't be lived on (`planspac.bin`) or gives no bonus
+(`planboni.bin`).
 
-- `planspac.bin` ("planet space"?): 25 to 140, growing with the size and
-  highest for terran and jungle worlds (terran large: 120 125 130 130 130
-  130 135 135 140): maximum population, presumably, for 9 conditions not
-  known yet.
-- `planboni.bin`: 0 for arctic and barren worlds; 0, 5, 10, 15, 20 in a
-  pattern repeating every 3 values for desert and volcanic worlds; 0-10,
-  changing every 3 values, for jungle, oceanic and terran ones. Bonuses,
-  presumably (energy and food?).
+- `planspac.bin`: maximum population, 25 to 140, growing with the size and
+  highest for terran and jungle worlds; indexed by the planet's growth bonus
+  level x 3 + its energy bonus level (UE).
+- `planboni.bin`: bonus in steps of 5%, by food bonus level x 3 + energy
+  bonus level (UE): 0 for arctic and barren worlds; rising with the energy
+  level for desert and volcanic worlds, with the food level for jungle,
+  oceanic and terran ones.
 
 ## `edifbnft.bst`: building benefits
 
@@ -365,18 +398,142 @@ the offset table starts), the zero-terminated strings, then 45 `u32`
 offsets of the strings. A building's output type (`edifice.bst` offset 114)
 is the number of its wording here.
 
+## `racetech.tec`: starting technology and buildings
+
+325 `u32` offsets of the records (1,300 bytes), then 325 records of 108
+bytes. Read the records one after another: the offsets for records 86-90
+are wrong in the retail file (one record too far, then 0), and UE ignores
+them too.
+
+```
+0    i16       race                  0-34
+2    2 bytes   leftovers
+4    7 x {i16 level, 2 bytes, i32 research done}: one per research field, in tecfield.tec's order
+60   u64[6]    buildings available at the start, one bit per building number
+```
+
+The major races have 5 records each, one per starting level of
+civilization, and the minor races 10 each (levels 0-9). The major races'
+levels are 1, 2, 3, 5 and 8 in every field, which is what the manual gives
+for its five levels: Beginning (1), Early (2), Developed (3), Expanded (5)
+and Advanced (8). From UE, checked against the manual.
+
+## `bldset1.bin` to `bldset5.bin`: starting buildings
+
+One file per starting level, Beginning to Advanced. 8-byte records: race
+(`i16`, 0-4), building (`i16`, edifice.bst's number) and how many (`i32`).
+The Federation's in `bldset1.bin` are its own buildings: Starfleet
+Shipyard, 10 Type 1 Automated Farms, 7 Type 1 Mass Replicators, 5 Type 1
+Universities, 3 Type 1 Plasma Reactors, a Type 1 Databank and a Dilithium
+Refinery. From UE, checked against the data.
+
+## `morale.bin`: morale changes
+
+23 events x 5 major races, `i32` each (460 bytes), in this order: eliminate
+an empire, win a major / significant / minor battle, lose a major /
+significant / minor battle, sign a membership, subjugate a system, colonize
+a system, liberate a minor race, liberate natives, lose the home system, a
+member system, a subjugated system, a system to rebellion, bombard a
+system, declare war, war declared on you, reject peace, break a treaty, sign
+peace, sign an alliance.
+
+The event names are UE's. Checked against the manual: it says "Klingons will
+react positively to a declaration of war, whereas the Federation responds
+favorably to successful diplomatic relationships"; declaring war is +5 for
+the Klingons and -10 for the Federation, and signing an alliance +20 for the
+Federation, the most of any race.
+
+## `intel.bin`: intelligence
+
+5 records of 96 bytes, one per major race, all `i32` (UE):
+
+```
+0    espionage base
+4    sabotage base
+8    [5]  by target race
+28   [5]  by difficulty: simple, easy, normal, hard, impossible
+48   [8]  by the target's morale level: rebellious, defiant, disgruntled,
+          apathetic, content, pleased, loyal, fanatic
+80   [4]  by treaty: neutral, war, alliance, peace
+```
+
+The eight morale levels are the manual's eight, from worst to best. UE
+gives their ranges: rebellious 1-24, defiant 25-50, disgruntled 51-75,
+apathetic 76-99, content 100-125, pleased 126-150, loyal 151-175, fanatic
+176-194.
+
+## `meplanet.bin`: the major races' other planets
+
+30 records of 88 bytes: planet (`char[40]`, a planet.pst name), race
+(`char[40]`), the civilization level from which the race starts with it
+(`i32`: 0, 1 or 10) and how many records the race has (`i32`). Cardassians
+6, Federation 9, Ferengi 6, Klingons 4, Romulans 5. From UE, checked: every
+planet is in planet.pst.
+
+## `aibldreq.bin`: when the AI builds
+
+77 records of 24 bytes, `i32` each: building (edifice.bst's number, 0-86),
+population needed, maximum population needed, energy needed, then two
+values not known (70, 90, 50 ... and -10). From UE.
+
+## `.wtf`: AI weights
+
+These name their own columns and rows:
+
+```
+0    u32       1
+4    u16       columns
+6    u16       rows
+8    u32       values (columns x rows)
+12   char[33]  each column's name
+     char[33]  each row's name
+     f64       the values, row by row
+```
+
+- `ccolval.wtf`, `hcolval.wtf`, `fcolval.wtf`, `kcolval.wtf`, `rcolval.wtf`
+  (one per major race, by letter): 13 columns (Worthless, Dilithium, Food,
+  Energy, Poor_Industry, Average_Industry, Prime_Industry, Distance, Trade,
+  Near_Minor, Gal_Density, Military, Rnd), one row ("Default"): how much the
+  AI values each in choosing systems to colonise. The same in all five.
+- `aiempire.wtf`: 9 columns of tolerances (espionage, raiding, audience:
+  default, change per turn, change per incident), a row per major race: 1,
+  0.25, 0.25 for each in every race.
+- `aiminor.wtf`: 7 columns (Personality, Explorer, a hostility to each major
+  race), a row per minor race. The rows aren't in race.rst's order and some
+  spellings differ ("Edos", "Antideans"), so match them by name. UE gives
+  the values' meanings: personality 0 warlike, 1 peaceful, 2 pacifist, 3
+  deceptive, 4 spiritual; hostility 0 enraged to 8 worshipful.
+
+## `converse.bin`: speech
+
+Groups of `english.snd` clip numbers for the diplomacy screens (UE):
+
+```
+0    i32       groups (86)
+4    i32       where the group table is
+8    i32       lists (217)
+12   i16       1
+14   the lists' and groups' data
+     the group table: per group {i32 kind, i32 0, i32 size, i32 offset}
+     the list table: per list {i32 offset, i32 entries, i32 kind, i32 0}
+```
+
+A group is 0xFE, then per entry: race (`u8`), 7 bytes always `25 01 00 30
+00 5B 00`, the clip (`i16`), and 0xFE between entries or 0xFC after the
+last; then 0xFC. A group of kind 1 holds list numbers + 15,000 instead of
+clips. A list is its entries' offsets (`i16` each), then per entry {`i16` 1,
+`i16` clip}. The sizes add up to the file's, 16,714 bytes. Not in the Data
+page (it isn't made of records).
+
 ## Not worked out yet
 
 | Files | Size | What's known |
 |---|---|---|
-| `racetech.tec` | 36,400 | 325 offsets (1,300 bytes), then 325 records of 108 bytes |
-| `morale.bin` | 460 | 115 `i32`: five 50s, then values in groups of five (one per major race?), many negative (-10, -7 ...) |
 | `ppgrowth.bin` | 120 | 10 records of 12 bytes: two `u16` (10, 50 ...), a `u32` halving from 1,000,000 to 1,250, and a flag |
-| `intel.bin` | 480 | 120 `i32`, in groups of 24 (one per major race?) |
-| `meplanet.bin`, `meprvnum.bin`, `habit.bin` | 2,640, 120, 112 | `meplanet.bin` holds names ("Cardassia" ...) |
-| `aibldreq.bin`, `bldset1-5.bin` | 1,848, 280-792 | AI building rules |
-| `combat.bin`, `converse.bin` | 62,500, 16,714 | |
-| 7 `.wtf` | 578 to 2,913 | AI weights, colonisation values per race |
+| `meprvnum.bin`, `habit.bin` | 120, 112 | |
+| `combat.bin` | 62,500 | |
+
+UE doesn't read these either.
 
 ## Other sources
 
