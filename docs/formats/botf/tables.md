@@ -73,12 +73,12 @@ No header: 125 records of 288 bytes (the file's size / 288).
 140  u32       torpedo damage        each
 148  u32       shields
 168  u32       hit points
-276  u16       range                 0 medium, 1 long (the only two seen)
+260  f64       range                 0 short, 1 medium, 2 long
+268  f64       speed                 1, 2, 3
 278  u16       ?                     400 for the London Class transport, 1 for the colony ship, 0 for warships: what it carries?
-280  u16       1 in the ships seen   (their speed is 1: a candidate)
 282  u16       10 in the ships seen
 284  u16       build cost            industry
-286  u16       maintenance cost      (one ship seen: 23 for the Edward Class colony ship)
+286  u16       maintenance cost
 ```
 
 The ship list's stats for five Federation classes, and their records:
@@ -92,9 +92,17 @@ The ship list's stats for five Federation classes, and their records:
 | Ambassador cruiser (43) | 3100 | 153 / 410 | 7 x 25 | 5 x 44 | Medium / 1 |
 
 Not yet named: 100 differs in every ship; 152, 156, 160 and 172 vary by
-ship (152 rises with the shields: 10, 26, 13, 13, 45); 212-271 are eight
-`f64` values (100.0, 180.0 ...), zero for some ships; several other fields
-are constant.
+ship (152 rises with the shields: 10, 26, 13, 13, 45); 212-259 are six more
+`f64` values (100.0, 270.0 or 360.0, 300.0-700.0 ...), zero for unarmed
+ships; several other fields are constant.
+
+Range and speed (the last two `f64`) and the maintenance cost were
+confirmed on the whole Let's Play series (38 parts): every ship class whose
+range or speed the screens show, 19 of them, agrees (Galaxy and Nebula
+classes short, Oberth long, Destroyer II speed 2, Heavy Destroyer speed 3),
+and the maintenance costs read from the stills (23, 73, 115, 134) agree. An
+earlier guess, range at 276, was wrong: the Galaxy class shows "Short" with
+the same 0 there as medium-range ships.
 
 ## `techtree.tec`: technologies
 
