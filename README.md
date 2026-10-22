@@ -27,7 +27,7 @@ src/engines/       one directory per engine, plus registry.cpp listing them
                    Voyager - Elite Force: search path, shader scripts, BSP
                    maps; currently runs as a data viewer (docs/engines/idtech3.md)
   botf/            Star Trek: Birth of the Federation: its archives (stbof.res,
-                   alt.res, the .snd sound archives), fonts, text and data tables; currently runs as a data
+                   alt.res, the .snd sound archives), fonts, text and data tables, window layouts; currently runs as a data
                    viewer (docs/engines/botf.md)
 src/tools/         reluva-tool, utilities for studying game data
 tests/             unit tests for common/ and the engines
@@ -98,7 +98,10 @@ Linux (with each distro's packages) and Windows with Visual Studio 2022.
   change the sample text's size), then to the sounds (effects, speech and music)
   and the text tables (**Left/Right** pick one, **Up/Down** and
   **PageUp/PageDown** scroll, **F** changes the font) and the data tables
-  (**Left/Right** pick one, **Up/Down** and **PageUp/PageDown** pick a record).
+  (**Left/Right** pick one, **Up/Down** and **PageUp/PageDown** pick a record)
+  and the window layouts (**Left/Right** pick one, **Up/Down** pick a widget,
+  **O** turns the outlines off, **S** shows buttons' selected pictures,
+  **I** hides the details).
   On the sounds page: **Up/Down** pick one, **Left/Right**
   the archive, **Space** plays or stops it, **A** plays each as it's
   selected, and **R** changes the sample rate the speech and music are

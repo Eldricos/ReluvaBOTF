@@ -33,6 +33,7 @@ using botf::FontViewer;
 using botf::TextViewer;
 using botf::GameFiles;
 using botf::ImageViewer;
+using botf::LayoutViewer;
 using botf::SndArchive;
 using botf::SoundViewer;
 
@@ -92,11 +93,13 @@ public:
         FontViewer fonts(sys_, screen_, stbof_);
         TextViewer texts(sys_, screen_, stbof_);
         DataViewer data(sys_, screen_, stbof_);
+        LayoutViewer layouts(sys_, screen_, stbof_);
 
-        // Page 0 shows images, 1 fonts, 2 sounds, 3 text, 4 data; Tab moves
-        // to the next one that has something to show.
-        constexpr int kPages = 5;
-        const size_t counts[kPages] = {images.count(), fonts.count(), sounds.count(), texts.count(), data.count()};
+        // Page 0 shows images, 1 fonts, 2 sounds, 3 text, 4 data, 5 layouts;
+        // Tab moves to the next one that has something to show.
+        constexpr int kPages = 6;
+        const size_t counts[kPages] = {images.count(), fonts.count(), sounds.count(),
+                                       texts.count(),  data.count(),  layouts.count()};
         int page = 0;
         while (counts[page] == 0 && page < kPages - 1)
             ++page;
@@ -109,8 +112,10 @@ public:
                 sounds.activate();
             else if (page == 3)
                 texts.activate();
-            else
+            else if (page == 4)
                 data.activate();
+            else
+                layouts.activate();
         };
         activate();
         while (true) {
@@ -139,8 +144,10 @@ public:
                     sounds.handleKey(ev.key);
                 else if (page == 3)
                     texts.handleKey(ev.key);
-                else
+                else if (page == 4)
                     data.handleKey(ev.key);
+                else
+                    layouts.handleKey(ev.key);
             }
             if (page == 2)
                 sounds.update(sys_.getMillis());

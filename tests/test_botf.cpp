@@ -11,6 +11,7 @@
 #include "engines/botf/game_files.h"
 #include "engines/botf/snd_archive.h"
 #include "engines/botf/text_table.h"
+#include "engines/botf/window_layout.h"
 
 #include <algorithm>
 #include <cstdio>
@@ -359,6 +360,105 @@ void testDataTable() {
                   l.recordSize);
 }
 
+// A window layout: the common part of every widget, then each type's own.
+void putName(Bytes& b, const std::string& name) {
+    std::string n = name;
+    n.resize(13, '\0');
+    b.insert(b.end(), n.begin(), n.end());
+}
+
+void putWidget(Bytes& b, uint32_t type, uint32_t id, uint32_t x, uint32_t y, uint32_t w, uint32_t h, const std::string& bg) {
+    put32(b, type);
+    put32(b, id);
+    put32(b, x);
+    put32(b, y);
+    put32(b, w);
+    put32(b, h);
+    putName(b, bg);
+}
+
+void putWindowCounts(Bytes& b, std::vector<std::pair<uint32_t, uint32_t>> byType) {
+    uint32_t total = 0;
+    for (auto [t, n] : byType)
+        total += n;
+    put32(b, total);
+    for (uint32_t t = 1; t <= 15; ++t) {
+        uint32_t n = 0;
+        for (auto [tt, nn] : byType)
+            if (tt == t)
+                n = nn;
+        put32(b, n);
+    }
+}
+
+void putFont(Bytes& b, uint8_t r, uint8_t g, uint8_t bl, const std::string& file) {
+    b.push_back(r);
+    b.push_back(bl); // stored red, blue, green
+    b.push_back(g);
+    for (int i = 0; i < 7; ++i)
+        put32(b, 0);
+    put32(b, 1);
+    putName(b, file);
+}
+
+void testWindowLayout() {
+    Bytes f;
+    put32(f, 3); // the file's kind
+    putWidget(f, 1, 100, 0, 0, 800, 600, "bkg.tga");
+    putWindowCounts(f, {{1, 1}, {2, 1}, {14, 1}});
+    // A button: unknown, kind, repeats, rate, normal, selected.
+    putWidget(f, 2, 101, 10, 20, 60, 30, "none");
+    put32(f, 7);
+    f.push_back(2);
+    put32(f, 1);
+    put32(f, 5);
+    putName(f, "BTN_OFF.TGA");
+    putName(f, "btn_on.tga\0junk");
+    // A text box: text rectangle, font.
+    putWidget(f, 14, 102, 100, 200, 300, 40, "none");
+    put32(f, 4);
+    put32(f, 2);
+    put32(f, 290);
+    put32(f, 36);
+    putFont(f, 255, 128, 0, "human.fnt");
+    // A window inside, at (50, 60), with a picture at (5, 5) in it.
+    putWidget(f, 1, 103, 50, 60, 200, 100, "none");
+    putWindowCounts(f, {{13, 1}});
+    putWidget(f, 13, 104, 5, 5, 20, 10, "pic.tga");
+    put32(f, 0);
+
+    WindowLayout layout;
+    CHECK(!layout.load(f));
+    CHECK(layout.kind() == 3);
+    const Widget& root = layout.root();
+    CHECK(root.type == WidgetType::Window && root.id == 100 && root.w == 800 && root.background == "bkg.tga");
+    CHECK(root.children.size() == 3);
+    const Widget& button = root.children[0];
+    CHECK(button.type == WidgetType::Button && button.x == 10 && button.y == 20 && button.background.empty());
+    CHECK(button.buttonKind == 2 && button.repeats && button.repeatsPerSecond == 5);
+    CHECK(button.pictures.size() == 2 && button.pictures[0].second == "btn_off.tga" &&
+          button.pictures[1].first == "selected" && button.pictures[1].second == "btn_on.tga");
+    const Widget& text = root.children[1];
+    CHECK(text.type == WidgetType::TextBox && text.textX == 4 && text.textW == 290);
+    CHECK(text.fonts.size() == 1 && text.fonts[0].file == "human.fnt" && text.fonts[0].own);
+    CHECK(text.fonts[0].color.r == 255 && text.fonts[0].color.g == 128 && text.fonts[0].color.b == 0);
+    const Widget& inner = root.children[2];
+    CHECK(inner.children.size() == 1 && inner.children[0].type == WidgetType::Picture);
+
+    // Screen positions add up through the windows.
+    const auto placed = layout.placed();
+    CHECK(placed.size() == 5);
+    CHECK(placed[4].widget->id == 104 && placed[4].x == 55 && placed[4].y == 65 && placed[4].depth == 2);
+
+    // Cut short, or a type that isn't known: an error, not a crash.
+    Bytes cut(f.begin(), f.begin() + 120);
+    CHECK(layout.load(cut));
+    Bytes odd = f;
+    odd[4 + 4 + 33 + 64] = 99; // the first child's type
+    CHECK(layout.load(odd));
+    CHECK(layout.load(Bytes(3, 0)));
+}
+
 void testLzss() {
     // The start of the retail alt.res's first file: a flag byte, literals
     // and two references that fill the TGA header's zeros; the decoded
@@ -588,6 +688,7 @@ int main() {
     testWrap();
     testTextTable();
     testDataTable();
+    testWindowLayout();
     testAltRes(tmp / "alt");
     testImaWithoutHeader();
     testSnd(tmp / "snd");

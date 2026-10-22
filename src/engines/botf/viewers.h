@@ -6,15 +6,18 @@
 #include "common/archive.h"
 #include "common/audio/mixer.h"
 #include "common/audio/sound.h"
+#include "common/image.h"
 #include "common/system.h"
 #include "common/types.h"
 #include "engines/botf/data_table.h"
 #include "engines/botf/font.h"
 #include "engines/botf/snd_archive.h"
 #include "engines/botf/text_table.h"
+#include "engines/botf/window_layout.h"
 
 #include <cstddef>
 #include <cstdint>
+#include <map>
 #include <memory>
 #include <string>
 #include <vector>
@@ -124,6 +127,37 @@ private:
     size_t current_ = 0, record_ = 0;
     DataTable table_;
     std::string error_;
+};
+
+// Shows the .wdf window layouts of an archive (stbof.res): each widget's
+// pictures where the layout puts them, outlined by type, and the selected
+// widget's details.
+//   Left/Right: previous/next layout   Up/Down: previous/next widget
+//   PageUp/PageDown: jump 10 layouts   O: outlines on/off
+//   S: buttons' selected pictures   I: the details on/off
+class LayoutViewer {
+public:
+    LayoutViewer(System& sys, Surface& screen, const Archive& archive);
+    size_t count() const { return names_.size(); }
+    void activate();
+    void handleKey(uint32_t key);
+
+private:
+    void load();
+    void show();
+    const image::Image* picture(const std::string& name); // cached; null if missing
+
+    System& sys_;
+    Surface& screen_;
+    const Archive& archive_;
+    std::vector<std::string> names_;
+    size_t current_ = 0, widget_ = 0;
+    WindowLayout layout_;
+    std::vector<WindowLayout::Placed> placed_;
+    std::string error_;
+    std::map<std::string, image::Image> pictures_;
+    std::map<std::string, std::string> missing_; // name: why
+    bool outlines_ = true, selected_ = false, info_ = true;
 };
 
 // Plays the .snd archives' sounds: sfx.snd's effects, the language's speech,

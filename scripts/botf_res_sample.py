@@ -20,6 +20,11 @@ For the data tables, all of them whole:
 
     python3 botf_res_sample.py "C:\\Program Files\\MicroProse\\Trek" \\
         --ext sst bst rst tec pst est bin wtf --all-whole -o botf-data
+
+For the window layouts (about 470 KB), with the menus they name:
+
+    python3 botf_res_sample.py "C:\\Program Files\\MicroProse\\Trek" \\
+        --ext wdf mnu --all-whole -o botf-wdf
 """
 
 import argparse
