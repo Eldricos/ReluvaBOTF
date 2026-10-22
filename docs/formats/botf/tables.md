@@ -1,13 +1,14 @@
 # Star Trek: Birth of the Federation: data tables
 
-Status: **record layouts known for 30 of the 35 tables**: races, ships,
+Status: **record layouts known for all 35 tables**: races, ships,
 technologies, research fields, buildings, planets, environments, star and
-ship names, ships' requirements and races, planet values, starting
-technology and buildings, morale, intelligence, the AI's tables, and the
-speech groups. Ships' and buildings' main values were matched against the
-game's screens; the rest come from the modding community's editor and were
-checked against the data and the manual (see "Other sources"). Left:
-`ppgrowth.bin`, `meprvnum.bin`, `habit.bin`, `combat.bin`, and a few fields.
+ship names, ships' requirements and races, planet values, habitability,
+starting technology, buildings and systems, morale, intelligence, the AI's
+tables and the speech groups. Ships' and buildings' main values were matched
+against the game's screens; the rest come from the modding community's
+editor and forums and were checked against the data and the manual (see
+"Other sources"). Two tables seem to be unused (`ppgrowth.bin`,
+`combat.bin`), and a few fields are still unknown.
 Reader: `src/engines/botf/data_table.cpp` (one `TableLayout` per table);
 the viewer's Data page shows every record with its known fields and the
 bytes not worked out yet.
@@ -462,13 +463,23 @@ gives their ranges: rebellious 1-24, defiant 25-50, disgruntled 51-75,
 apathetic 76-99, content 100-125, pleased 126-150, loyal 151-175, fanatic
 176-194.
 
-## `meplanet.bin`: the major races' other planets
+## `meplanet.bin`: the major races' home systems
 
 30 records of 88 bytes: planet (`char[40]`, a planet.pst name), race
-(`char[40]`), the civilization level from which the race starts with it
-(`i32`: 0, 1 or 10) and how many records the race has (`i32`). Cardassians
-6, Federation 9, Ferengi 6, Klingons 4, Romulans 5. From UE, checked: every
-planet is in planet.pst.
+(`char[40]`), a value (`i32`) and how many records the race has (`i32`). The
+planets are each major race's home system: Cardassia 1-6, the Sol system
+(Mercury to Pluto), Ferenginar 1-6, Qo'nos 1-4, Romulus 1-5. Every planet is
+in planet.pst. UE calls the value a level; it's 10 for the gas giants
+(Jupiter, Saturn, Uranus, Neptune, Ferenginar 5, Romulus 4), 1 for Cardassia
+5 and 0 for the rest, so what it is isn't known.
+
+## `meprvnum.bin`: extra starting systems
+
+6 rows of 5 `i32`: one per major race and one more, each `0 0 0 1 2`. These
+are the extra solar systems a race starts with at each level of
+civilization: the manual has Beginning, Early and Developed start with one
+system, Expanded with two and Advanced with three. Worked out here; UE
+doesn't read it.
 
 ## `aibldreq.bin`: when the AI builds
 
@@ -525,15 +536,51 @@ clips. A list is its entries' offsets (`i16` each), then per entry {`i16` 1,
 `i16` clip}. The sizes add up to the file's, 16,714 bytes. Not in the Data
 page (it isn't made of records).
 
-## Not worked out yet
+## `habit.bin`: habitability
 
-| Files | Size | What's known |
-|---|---|---|
-| `ppgrowth.bin` | 120 | 10 records of 12 bytes: two `u16` (10, 50 ...), a `u32` halving from 1,000,000 to 1,250, and a flag |
-| `meprvnum.bin`, `habit.bin` | 120, 112 | |
-| `combat.bin` | 62,500 | |
+14 records of 8 bytes: planet type and atmosphere (environ.est's numbers),
+then a habitability value (0-10) for each major race and one for minor races
+and empty systems. The 14 combinations are exactly the ones planet.pst uses.
+Terran with an oxygen-rich atmosphere is the best (9 10 10 9 7 10), gas
+giants are 0, and the Klingons and Romulans do best on volcanic and barren
+worlds.
 
-UE doesn't read these either.
+What each value means comes from a post on the Armada Fleet Command forums
+("Planet Growth Values ; habit.bin", Gowron, May 2008,
+<https://www.armadafleetcommand.com/onscreen/botf/viewtopic.php?t=61>): a
+planet's growth rate starts from its habitability value, times a minor race's
+growth rate (race.rst) in its home system, times a factor for the planet's
+size, times its maximum population and constants the game keeps in its
+executable. The post gives the steps and the constants; they'll be needed
+for the rules, checked against the game.
+
+## `ppgrowth.bin`: not used
+
+10 records of 12 bytes: a range (`u16` from, `u16` to: 10-50, 50-100 ...
+2000-10000), a value (`u32`: 1,000,000, 500,000, 50,000 ... 1,250), a flag
+(`u8`, 0 for the first two ranges, 1 for the rest), then `ff 00 00`.
+
+The forums report that the game doesn't use it: filling it with zeros changes
+nothing ("System Size Boundaries", Gowron, May 2008,
+<https://www.armadafleetcommand.com/onscreen/botf/viewtopic.php?t=76>). The
+same post suggests it was meant for generating star systems, which add
+planets until their maximum population passes 80, then randomly up to 400,
+with gas giants allowed only after 80: the ranges and the flag fit that.
+
+## `combat.bin`: probably not used
+
+125 records of 500 bytes, one per ship class in shiplist.sst's order, worked
+out here: each record is two rows of 250 bytes, and each row holds a value
+for every ship class (the even bytes in the first row, the odd ones in the
+second), 5 to 100 (mostly 5 and 95) or 255. The records of the 16 unarmed
+ships (colony ships and troop transports) are empty.
+
+The forums report that the game loads it (without it, it won't start) but
+that its values have no effect ("tfdesign.tfd",
+<https://www.armadafleetcommand.com/onscreen/botf/viewtopic.php?t=566>, 2008-2010;
+one post found the executable stepping through it 500 bytes at a time for
+125 ships, which is the layout above). UE doesn't read it. Worth testing in
+the running game before relying on that.
 
 ## Other sources
 

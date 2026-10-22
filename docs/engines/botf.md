@@ -16,11 +16,11 @@ stands.
 | `.snd` archives | `SndArchive` (`snd_archive.cpp`): both layouts; WAV entries through `common/audio/wav.cpp`, bare IMA ADPCM through its `decodeImaAdpcm` at 22,050 Hz (confirmed by ear) ([snd.md](../formats/botf/snd.md)) |
 | Fonts | `Font` (`font.cpp`): the 120 glyphs of every `.fnt`, found by their frames, with their advances; drawing UTF-8 text; all 21 load ([fnt.md](../formats/botf/fnt.md)) |
 | Text tables | `TextTable` (`text_table.cpp`): every `.tdb` string and its key, Windows-1252 decoded to UTF-8 ([tdb.md](../formats/botf/tdb.md)) |
-| Data tables | `DataTable` (`data_table.cpp`) with a `TableLayout` per table: 30 tables, from races, ships, buildings and planets to morale, intelligence, starting technology and buildings and the AI's weights. Ships' and buildings' main values matched against a recording of the game; the rest from the modding community's Ultimate Editor, checked against the data and the manual ([tables.md](../formats/botf/tables.md)) |
+| Data tables | `DataTable` (`data_table.cpp`) with a `TableLayout` per table: all 35 tables, from races, ships, buildings and planets to morale, intelligence, starting technology and buildings and the AI's weights. Ships' and buildings' main values matched against a recording of the game; the rest from the modding community's Ultimate Editor and forums, checked against the data and the manual ([tables.md](../formats/botf/tables.md)) |
 | Viewer | Images (`stbof.res` and `alt.res` TGAs, full-screen ones at their own size), Fonts (glyph sheet and sample text), Sounds (effects, speech, music pieces), Text (each table's strings, wrapped, in a game font) and Data (records, known fields, the bytes not worked out, descriptions) pages; keys in the README |
 | Tools | `reluva-tool alt-list` (list and extract `alt.res`), `snd-list` (list and decode a `.snd` archive to WAV) |
 | Tests | `tests/test_botf.cpp`: LZSS (with bytes from the retail file's start), `alt.res`, fonts and line wrapping, text and data tables, both `.snd` layouts, ADPCM without a WAV header, `Stbof.ini` and file finding |
-| Not yet | `.gif` textures (stb_image is built without GIF), how the game colours text, what the text tables' keys mean, four data tables (`ppgrowth`, `meprvnum`, `habit`, `combat`) and a few fields, models, movies, saves, the game itself |
+| Not yet | `.gif` textures (stb_image is built without GIF), how the game colours text, what the text tables' keys mean, a few data table fields, models, movies, saves, the game itself |
 
 Sources (October 2026): `trek.exe` and `Trek.icd` from an English retail
 install, directory listings of that install and of the CD, and
