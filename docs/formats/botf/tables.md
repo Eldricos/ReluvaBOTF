@@ -144,8 +144,8 @@ A record:
 120  u16       build cost            industry
 124  u16       energy maintenance
 128  u16       population maintenance
-134  u16[6]    output                the same six times in all but Martial Law (1 7 1 1 1 1); per difficulty level?
-146  u16[6]    second bonus          Private Farms' +1 morale (1 six times)
+134  u16[6]    output                per race: the 5 major races in race.rst's order, then one more
+146  u16[6]    second bonus          per race, the same way: Private Farms' +1 morale (1 six times)
 172  u32       description           offset in edifdesc.bst
 ```
 
@@ -162,6 +162,17 @@ The screens shown and the records (Federation buildings):
 | Martial Law (187) | +7 morale | 0 | 0 / 0 | 1 7 1 1 1 1 |
 | Mythology Library (207) | +300 research, cost 1500, energy maintenance 50 | 1500 | 50 / 0 | 300 |
 | Private Farms (236) | +20 food, +1 morale, cost 1500, energy maintenance 80 | 1500 | 80 / 0 | 20, second bonus 1 |
+
+The output is per race, not per difficulty level: the Federation (race 1)
+is shown the second value. Martial Law's are 1 7 1 1 1 1 and it shows +7
+morale; Starfleet Academy's are 0 50 0 0 0 0 and it shows +50 ship
+experience. Every other building seen has the same value six times.
+
+Over the whole series (38 parts), 129 buildings were matched by name and
+numbers: 100 build costs, 28 energy maintenance, 61 population maintenance
+and 82 outputs agree. Every disagreement left is a misread digit in the
+OCR (5060 read 5080, 41 read 4, 50 read 90, 10 read 0 or 19 ...), checked
+against the stills where it mattered.
 
 Upgrade screens agree with the output and population maintenance of the
 Type 3 Plasma Reactor (26 to 31 energy), Mass Replicator (15 to 20
