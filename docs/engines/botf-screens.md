@@ -40,6 +40,10 @@ Trek Birth of the Federation, UFP, p1", the screen at 0:57-1:17), October
   by comparing the recording with the files), in the middle of the box's
   height. Drawn this way over a still of the recording, every value lands on
   the game's own, letter for letter.
+- **The words** are `lexicon.dic`'s, but the screen numbers the
+  civilization levels ("2 EARLY"; the entry is "EARLY") and shows the
+  timers' "None" in capitals. With the English `lexicon.dic`, drawn over the
+  still, they match it as before.
 - **Colours.** The glyphs are shades of grey and the game colours them. The
   colours are measured from the recording (the brightest pixels of the
   text): blue (51, 90, 140) for the preferences and galaxy, green (120,

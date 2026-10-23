@@ -1,7 +1,8 @@
 # Star Trek: Birth of the Federation: `lexicon.dic`
 
-Status: **layout known** (from the modding community's editor); reader
-`src/engines/botf/lexicon.cpp`. Not yet checked against the file itself.
+Status: **layout known, checked against the English file**: 1,460 entries,
+the table ending exactly at the end of the file, every string ending at
+its length. Reader `src/engines/botf/lexicon.cpp`.
 
 The words and short phrases the interface shows: option values ("Early",
 "Many", "Normal"), race, star and planet type names, labels. 81,577 bytes in
@@ -10,7 +11,7 @@ the English `stbof.res`; it differs in the German one.
 ```
 0     u32       where the table is
 4     the strings, zero-terminated, Windows-1252
-table u32       not known
+table u32       952 in the English file; not known
       u16       how many entries
       per entry: u32 the string's offset, u32 its length (with the zero)
 ```
@@ -34,6 +35,14 @@ the screen change. In `lexicon.h` (`lex::`):
 | Galaxy shape | 555 Irregular, 264 Elliptical, 1056 Ring, 1172 Spiral |
 | Galaxy size | 1158 Small, 627 Medium, 596 Large |
 
-The recording shows the civilization levels as "2 EARLY": whether the
-number is part of the entry or added by the game will show once the file's
-read.
+Checked against the English file (`scripts/botf_res_sample.py --ext dic
+--all-whole`), October 2026: every one of these entries is the word the
+screen shows. The preferences are in capitals ("MANY", "HARD", "DOMINATION",
+"TEAM PLAY"), the galaxy values not ("Irregular", "Large"), as in the
+recording. Two things the game adds: the civilization levels are only the
+word ("EARLY"), and the screen numbers them ("2 EARLY", the level counting
+from 1); and entry 872 is "None", which the timers show as "NONE" (there's
+no capitalised entry).
+
+The entries are in roughly alphabetical order, phrases with `%1`/`%2` place
+holders among them ("%s1 accepted an affiliation proposal from %2.").

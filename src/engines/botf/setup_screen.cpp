@@ -37,6 +37,14 @@ constexpr int kTimerChoices = 1; // "None"; the others aren't known yet
 const char* const kShapePictures[] = {"cc_gsir.tga", "cc_gsel.tga", "cc_gsrg.tga", "cc_gssp.tga"};
 const char* const kSizePictures[] = {"cc_gzsm.tga", "cc_gzmd.tga", "cc_gzlg.tga"};
 
+// ASCII letters in capitals; the rest as it is.
+std::string upper(std::string s) {
+    for (char& c : s)
+        if (c >= 'a' && c <= 'z')
+            c = char(c - 'a' + 'A');
+    return s;
+}
+
 Error loadLayout(Assets& assets, const char* name, WindowLayout& layout) {
     std::vector<uint8_t> data;
     if (Error err = assets.archive().read(name, data))
@@ -185,17 +193,20 @@ void SetupScreen::draw(Surface& screen) {
             if (const image::Image* img = assets_.picture(file))
                 blitClipped(screen, *img, p->x, p->y, p->x, p->y, p->widget->w, p->widget->h);
 
-    const std::pair<int, const char*> levels[] = {{lex::Beginning, "1 BEGINNING"},
-                                                  {lex::Early, "2 EARLY"},
-                                                  {lex::Developed, "3 DEVELOPED"},
-                                                  {lex::Expanded, "4 EXPANDED"},
-                                                  {lex::Advanced, "5 ADVANCED"}};
+    // The levels are numbered on the screen ("2 EARLY"); lexicon.dic holds
+    // only the word.
+    const std::pair<int, const char*> levels[] = {{lex::Beginning, "BEGINNING"},
+                                                  {lex::Early, "EARLY"},
+                                                  {lex::Developed, "DEVELOPED"},
+                                                  {lex::Expanded, "EXPANDED"},
+                                                  {lex::Advanced, "ADVANCED"}};
     for (size_t i = 0; i < kCivTexts.size(); ++i) {
-        const auto& [entry, english] = levels[size_t(s.civilization[i])];
-        drawText(screen, kCivTexts[i], word(entry, english), kLevelColor);
+        const int level = s.civilization[i];
+        const auto& [entry, english] = levels[size_t(level)];
+        drawText(screen, kCivTexts[i], std::to_string(level + 1) + " " + word(entry, english), kLevelColor);
     }
     const std::pair<int, const char*> minors[] = {
-        {lex::None, "NONE"}, {lex::Few, "FEW"}, {lex::Some, "SOME"}, {lex::Many, "MANY"}};
+        {lex::None, "None"}, {lex::Few, "FEW"}, {lex::Some, "SOME"}, {lex::Many, "MANY"}};
     const std::pair<int, const char*> difficulties[] = {{lex::Simple, "SIMPLE"},
                                                         {lex::Easy, "EASY"},
                                                         {lex::Normal, "NORMAL"},
@@ -215,8 +226,9 @@ void SetupScreen::draw(Surface& screen) {
     value(kVictoryText, victories[s.victory]);
     value(kShapeText, shapes[s.galaxyShape]);
     value(kSizeText, sizes[s.galaxySize]);
-    drawText(screen, kStrategicText, word(lex::None, "NONE"), kTimerColor);
-    drawText(screen, kTacticalText, word(lex::None, "NONE"), kTimerColor);
+    // The timers show "NONE" though the entry is "None".
+    drawText(screen, kStrategicText, upper(word(lex::None, "None")), kTimerColor);
+    drawText(screen, kTacticalText, upper(word(lex::None, "None")), kTimerColor);
 }
 
 } // namespace reluva::botf
