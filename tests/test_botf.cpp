@@ -8,6 +8,7 @@
 #include "engines/botf/alt_res.h"
 #include "engines/botf/data_table.h"
 #include "engines/botf/font.h"
+#include "engines/botf/empire_screen.h"
 #include "engines/botf/game_files.h"
 #include "engines/botf/lexicon.h"
 #include "engines/botf/menu_file.h"
@@ -646,6 +647,78 @@ void testSetupScreen() {
     CHECK(other.load());
 }
 
+void testEmpireScreen() {
+    // The empires' name buttons 9105-9109 in a column, 100x20 each, Accept
+    // and Cancel, a hidden button, and the description's text box.
+    Bytes f;
+    put32(f, 2);
+    putWidget(f, 1, 9000, 0, 0, 800, 600, "none");
+    putWindowCounts(f, {{2, 8}, {14, 1}});
+    auto button = [&](uint32_t id, uint32_t x, uint32_t y) {
+        putWidget(f, 2, id, x, y, 100, 20, "none");
+        put32(f, 0xffffffff);
+        f.push_back(2);
+        put32(f, 0);
+        put32(f, 0);
+        putName(f, "none");
+        putName(f, "none");
+    };
+    for (uint32_t i = 0; i < 5; ++i)
+        button(9105 + i, 0, 100 + i * 50);
+    button(9110, 400, 500);
+    button(9111, 0, 500);
+    button(9124, 200, 100);
+    putWidget(f, 14, 9112, 300, 100, 240, 340, "none");
+    for (uint32_t v : {0u, 0u, 240u, 340u})
+        put32(f, v);
+    putFont(f, 0, 0, 0, "human20.fnt");
+    Bytes menu;
+    put32(menu, 2);
+    putWidget(menu, 1, 138, 0, 0, 800, 600, "none");
+    putWindowCounts(menu, {});
+    MemoryArchive archive;
+    archive.files["emppick.wdf"] = f;
+    archive.files["opening.wdf"] = menu;
+    Assets assets(archive);
+    Lexicon lexicon;
+    EmpireScreen screen(assets, lexicon);
+    CHECK(!screen.load());
+
+    auto mouse = [&](EventType t, int x, int y) {
+        Event e;
+        e.type = t;
+        e.button = t == EventType::MouseMove ? MouseButton::None : MouseButton::Left;
+        e.mouseX = x;
+        e.mouseY = y;
+        return screen.handle(e);
+    };
+    auto click = [&](int x, int y) {
+        mouse(EventType::MouseDown, x, y);
+        return mouse(EventType::MouseUp, x, y);
+    };
+    Event ret;
+    ret.type = EventType::KeyDown;
+    ret.key = key::Return;
+    // Nothing chosen: Accept and Return do nothing.
+    CHECK(screen.chosen() == -1);
+    CHECK(click(450, 510) == EmpireScreen::Result::Open && screen.handle(ret) == EmpireScreen::Result::Open);
+    // Clicking a name chooses that empire (race.rst's order); pointing doesn't.
+    mouse(EventType::MouseMove, 50, 210);
+    CHECK(screen.chosen() == -1);
+    click(50, 160);
+    CHECK(screen.chosen() == 1);
+    // The hidden button isn't there.
+    click(250, 110);
+    CHECK(screen.chosen() == 1);
+    CHECK(click(450, 510) == EmpireScreen::Result::Accepted);
+    CHECK(click(50, 510) == EmpireScreen::Result::Cancelled);
+    screen.reset();
+    CHECK(screen.chosen() == -1);
+    Surface surface;
+    surface.create(800, 600, PixelFormat::RGBA32);
+    screen.draw(surface);
+}
+
 void testColorKey() {
     image::Image img;
     img.w = 4;
@@ -889,6 +962,7 @@ int main() {
     testMenuFile();
     testLexicon();
     testSetupScreen();
+    testEmpireScreen();
     testAltRes(tmp / "alt");
     testImaWithoutHeader();
     testSnd(tmp / "snd");

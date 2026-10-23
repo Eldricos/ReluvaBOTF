@@ -34,6 +34,7 @@ the screen change. In `lexicon.h` (`lex::`):
 | Victory conditions | 248 Domination, 1407 Vendetta, 1253 Team Play |
 | Galaxy shape | 555 Irregular, 264 Elliptical, 1056 Ring, 1172 Spiral |
 | Galaxy size | 1158 Small, 627 Medium, 596 Large |
+| Empire descriptions (empire selection) | 270 Cardassians, 271 Ferengi, 272 Federation, 273 Klingons, 274 Romulans (found by the recording's text, not from UE) |
 
 Checked against the English file (`scripts/botf_res_sample.py --ext dic
 --all-whole`), October 2026: every one of these entries is the word the

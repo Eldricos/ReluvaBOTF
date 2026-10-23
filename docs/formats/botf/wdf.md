@@ -126,7 +126,10 @@ shows the pictures both ways (K).
 
 ## Not known yet
 
-- What the button kinds, the fonts' third and fourth flags and the 0s and
+- What the button kinds are. (Kind 2 is on the empire selection screen's
+  name buttons, which stay down once clicked, one at a time; kind 0 on push
+  buttons like Accept and Cancel.)
+- What the fonts' third and fourth flags and the 0s and
   -1s mean. (The first two flags are the text's alignment: found by
   comparing the game setup screen in the recording with `gmesetup.wdf`,
   whose right-aligned galaxy values have the first, its centred preferences

@@ -158,7 +158,9 @@ if(RELUVA_ENGINE_BOTF)
         src/engines/botf/menu_file.cpp
         src/engines/botf/assets.cpp
         src/engines/botf/lexicon.cpp
+        src/engines/botf/layout_screen.cpp
         src/engines/botf/setup_screen.cpp
+        src/engines/botf/empire_screen.cpp
         src/engines/botf/setup_viewer.cpp
         src/engines/botf/layout_viewer.cpp
         src/engines/botf/sound_viewer.cpp)

@@ -103,7 +103,8 @@ Linux (with each distro's packages) and Windows with Visual Studio 2022.
   **O** turns the outlines off, **S** shows buttons' selected pictures,
   **I** hides the details; a selected menu is shown open), and the game
   setup screen, working (click its controls; **Shift**-click sets every
-  empire's civilization level).
+  empire's civilization level), whose Accept goes on to the empire selection
+  screen (point at an empire for its description, click to choose it).
   On the sounds page: **Up/Down** pick one, **Left/Right**
   the archive, **Space** plays or stops it, **A** plays each as it's
   selected, and **R** changes the sample rate the speech and music are

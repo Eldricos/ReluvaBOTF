@@ -37,59 +37,25 @@ constexpr int kTimerChoices = 1; // "None"; the others aren't known yet
 const char* const kShapePictures[] = {"cc_gsir.tga", "cc_gsel.tga", "cc_gsrg.tga", "cc_gssp.tga"};
 const char* const kSizePictures[] = {"cc_gzsm.tga", "cc_gzmd.tga", "cc_gzlg.tga"};
 
-// ASCII letters in capitals; the rest as it is.
-std::string upper(std::string s) {
-    for (char& c : s)
-        if (c >= 'a' && c <= 'z')
-            c = char(c - 'a' + 'A');
-    return s;
-}
-
-Error loadLayout(Assets& assets, const char* name, WindowLayout& layout) {
-    std::vector<uint8_t> data;
-    if (Error err = assets.archive().read(name, data))
-        return err;
-    if (Error err = layout.load(data))
-        return Error::fail(std::string(name) + ": " + err.message);
-    return Error::success();
-}
-
 } // namespace
 
 Error SetupScreen::load() {
-    if (Error err = loadLayout(assets_, "opening.wdf", menu_))
-        return err;
-    if (Error err = loadLayout(assets_, "gmesetup.wdf", setupLayout_))
-        return err;
-    widgets_.clear();
-    for (const WindowLayout::Placed& p : setupLayout_.placed())
-        widgets_[p.widget->id] = {p.widget, p.x, p.y};
-    for (int32_t id : {kAccept, kCancel, kMinorRaces, kDifficulty, kStrategicLess, kStrategicMore, kTacticalLess,
-                       kTacticalMore, kRandomEvents, kCombat, kVictory, kShape, kSize})
-        if (!find(id))
-            return Error::fail("gmesetup.wdf has no widget " + std::to_string(id));
-    for (int32_t id : kCivButtons)
-        if (!find(id))
-            return Error::fail("gmesetup.wdf has no widget " + std::to_string(id));
-    return Error::success();
+    return loadLayouts("gmesetup.wdf", {kAccept, kCancel, kMinorRaces, kDifficulty, kStrategicLess, kStrategicMore,
+                                        kTacticalLess, kTacticalMore, kRandomEvents, kCombat, kVictory, kShape, kSize,
+                                        kCivButtons[0], kCivButtons[1], kCivButtons[2], kCivButtons[3],
+                                        kCivButtons[4]});
 }
 
-const SetupScreen::Placed* SetupScreen::find(int32_t id) const {
-    auto it = widgets_.find(id);
-    return it == widgets_.end() ? nullptr : &it->second;
-}
-
-int32_t SetupScreen::buttonAt(int x, int y) const {
-    for (const auto& [id, p] : widgets_)
-        if (p.widget->type == WidgetType::Button && x >= p.x && y >= p.y && x < p.x + p.widget->w &&
-            y < p.y + p.widget->h)
-            return id;
-    return 0;
-}
-
-std::string SetupScreen::word(int entry, const char* english) const {
-    const std::string& w = lexicon_[size_t(entry)];
-    return w.empty() ? english : w;
+std::string civilizationLevel(const Lexicon& lexicon, int level) {
+    static const std::pair<int, const char*> levels[] = {{lex::Beginning, "BEGINNING"},
+                                                         {lex::Early, "EARLY"},
+                                                         {lex::Developed, "DEVELOPED"},
+                                                         {lex::Expanded, "EXPANDED"},
+                                                         {lex::Advanced, "ADVANCED"}};
+    level = std::clamp(level, 0, 4);
+    const std::string& w = lexicon[size_t(levels[level].first)];
+    // The screens number the levels; lexicon.dic holds only the word.
+    return std::to_string(level + 1) + " " + (w.empty() ? levels[level].second : w);
 }
 
 void SetupScreen::click(int32_t id, bool shift) {
@@ -146,65 +112,14 @@ SetupScreen::Result SetupScreen::handle(const Event& e) {
     return Result::Open;
 }
 
-void SetupScreen::drawButton(Surface& screen, const Placed& p) {
-    const Widget& w = *p.widget;
-    const char* want = p.widget->id == pressed_ ? "selected" : "normal";
-    for (const auto& [role, name] : w.pictures)
-        if (role == want)
-            if (const image::Image* img = assets_.picture(name))
-                blitClipped(screen, *img, p.x, p.y, p.x, p.y, w.w, w.h);
-}
-
-void SetupScreen::drawText(Surface& screen, int32_t textBox, const std::string& text, Color color) {
-    const Placed* p = find(textBox);
-    if (!p || p->widget->fonts.empty())
-        return;
-    const Widget& w = *p->widget;
-    const WidgetFont& wf = w.fonts[0];
-    const Font* f = assets_.font(wf.file);
-    if (!f)
-        return;
-    const int width = f->measure(text);
-    int x = p->x + w.textX;
-    if (wf.align() == WidgetFont::Align::Center)
-        x += (w.textW - width) / 2;
-    else if (wf.align() == WidgetFont::Align::Right)
-        x += w.textW - width;
-    const int y = p->y + w.textY + (w.textH - f->glyphHeight()) / 2;
-    f->drawInColor(screen, x, y, text, color);
-}
-
 void SetupScreen::draw(Surface& screen) {
-    // The main menu, then the setup screen over it: each layout's
-    // backgrounds and buttons, parents before children.
-    for (WindowLayout* layout : {&menu_, &setupLayout_})
-        for (const WindowLayout::Placed& lp : layout->placed()) {
-            const Widget& w = *lp.widget;
-            if (const image::Image* img = w.background.empty() ? nullptr : assets_.picture(w.background))
-                blitClipped(screen, *img, lp.x, lp.y, lp.x, lp.y, w.w, w.h);
-            if (w.type == WidgetType::Button)
-                drawButton(screen, {lp.widget, lp.x, lp.y});
-        }
-
+    drawLayouts(screen);
     const GameSetup& s = setup_;
-    for (auto [id, file] : {std::pair{kShapePicture, kShapePictures[s.galaxyShape]},
-                            std::pair{kSizePicture, kSizePictures[s.galaxySize]}})
-        if (const Placed* p = find(id))
-            if (const image::Image* img = assets_.picture(file))
-                blitClipped(screen, *img, p->x, p->y, p->x, p->y, p->widget->w, p->widget->h);
+    drawPicture(screen, kShapePicture, kShapePictures[s.galaxyShape]);
+    drawPicture(screen, kSizePicture, kSizePictures[s.galaxySize]);
 
-    // The levels are numbered on the screen ("2 EARLY"); lexicon.dic holds
-    // only the word.
-    const std::pair<int, const char*> levels[] = {{lex::Beginning, "BEGINNING"},
-                                                  {lex::Early, "EARLY"},
-                                                  {lex::Developed, "DEVELOPED"},
-                                                  {lex::Expanded, "EXPANDED"},
-                                                  {lex::Advanced, "ADVANCED"}};
-    for (size_t i = 0; i < kCivTexts.size(); ++i) {
-        const int level = s.civilization[i];
-        const auto& [entry, english] = levels[size_t(level)];
-        drawText(screen, kCivTexts[i], std::to_string(level + 1) + " " + word(entry, english), kLevelColor);
-    }
+    for (size_t i = 0; i < kCivTexts.size(); ++i)
+        drawText(screen, kCivTexts[i], civilizationLevel(lexicon_, s.civilization[i]), kLevelColor);
     const std::pair<int, const char*> minors[] = {
         {lex::None, "None"}, {lex::Few, "FEW"}, {lex::Some, "SOME"}, {lex::Many, "MANY"}};
     const std::pair<int, const char*> difficulties[] = {{lex::Simple, "SIMPLE"},
@@ -227,8 +142,8 @@ void SetupScreen::draw(Surface& screen) {
     value(kShapeText, shapes[s.galaxyShape]);
     value(kSizeText, sizes[s.galaxySize]);
     // The timers show "NONE" though the entry is "None".
-    drawText(screen, kStrategicText, upper(word(lex::None, "None")), kTimerColor);
-    drawText(screen, kTacticalText, upper(word(lex::None, "None")), kTimerColor);
+    drawText(screen, kStrategicText, upperAscii(word(lex::None, "None")), kTimerColor);
+    drawText(screen, kTacticalText, upperAscii(word(lex::None, "None")), kTimerColor);
 }
 
 } // namespace reluva::botf

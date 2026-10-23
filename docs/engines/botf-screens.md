@@ -54,3 +54,49 @@ Trek Birth of the Federation, UFP, p1", the screen at 0:57-1:17), October
   pressed buttons with their "selected" picture while held (the viewer
   does); what the main menu's buttons look like while the panel is open (in
   the recording they look dimmed).
+
+## Empire selection
+
+`src/engines/botf/empire_screen.cpp`; the viewer's last page goes on to it
+from the setup screen's Accept. Sources: `emppick.wdf`, the manual
+("Empire Selection Screen", chapter 5) and the same recording (1:16-1:45),
+October 2026.
+
+- **Drawn over the main menu**, like the setup screen.
+- **Each empire** (in `race.rst`'s order): a name button (kind 2; its
+  pictures, `es_?btn1`/`es_?btn2`, carry the name), an emblem (`es_?icn0`,
+  in picture widgets whose sizes are exactly those of the `es_?icn`
+  pictures), and its civilization level from the setup screen in the text
+  box under the name, numbered as there ("2 EARLY"):
+
+  | Empire | Name | Emblem | Level |
+  |---|---|---|---|
+  | Cardassians | 9105 | 9100 | 9114 |
+  | Federation | 9106 | 9101 | 9115 |
+  | Ferengi | 9107 | 9102 | 9116 |
+  | Klingons | 9108 | 9103 | 9117 |
+  | Romulans | 9109 | 9104 | 9118 |
+
+- **Choosing.** In the recording no empire is chosen at first; the one
+  clicked shows its name button's second (yellow) picture and keeps it. The
+  emblems don't change. Accept (9110) and Cancel (9111) as on the setup
+  screen; the viewer's Accept needs an empire chosen, and Cancel goes back
+  to the setup.
+- **The description** of the empire pointed at, as the manual says ("when
+  the cursor passes over the empire's icon or name"), or else of the one
+  chosen, in text box 9112 (`human20.fnt`, left-aligned). It's not the
+  race's description in `racedesc.rst` but `lexicon.dic`'s entries 270-274
+  (found by the recording's text: "The Federation is a free society ...").
+  Its lines are 23 pixels apart (the font's 21 and 2 more), and break where
+  a word and a space after it no longer fit the box's 240 pixels: worked out
+  with the font's widths, which break the Federation's 13 lines exactly where
+  the recording does, where wrapping at 240 without the space doesn't (line
+  8: "...have a" / "more favorable ...").
+- **Not shown in single player:** five small buttons with number boxes
+  (9124-9128, 9119-9123; multiplayer, presumably) and a 250x350 picture
+  under the description (9113; the `es_?0`/`es_?1` pictures are that size).
+  The recording shows none of them.
+- **Colours** measured from the recording: the levels as on the setup
+  screen, the description (133, 115, 75).
+- **Not known yet:** what `es_?icn1` and `es_?0`/`es_?1` are for, and
+  whether pointing at an emblem changes it.

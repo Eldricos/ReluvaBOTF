@@ -5,12 +5,9 @@
 
 #include "common/events.h"
 #include "common/types.h"
-#include "engines/botf/assets.h"
-#include "engines/botf/lexicon.h"
-#include "engines/botf/window_layout.h"
+#include "engines/botf/layout_screen.h"
 
 #include <array>
-#include <map>
 #include <string>
 
 // The single-player game setup screen ("Configuration", gmesetup.wdf),
@@ -37,12 +34,12 @@ struct GameSetup {
     int galaxySize = 1;     // 0 small, 1 medium, 2 large
 };
 
-class SetupScreen {
+class SetupScreen : LayoutScreen {
 public:
     enum class Result { Open, Accepted, Cancelled };
 
     // `lexicon` may be empty: the words are then the English ones.
-    SetupScreen(Assets& assets, const Lexicon& lexicon) : assets_(assets), lexicon_(lexicon) {}
+    SetupScreen(Assets& assets, const Lexicon& lexicon) : LayoutScreen(assets, lexicon) {}
     Error load(); // the two layouts
     void draw(Surface& screen);
     // Mouse clicks on the controls (a click changes a setting, as in the
@@ -54,24 +51,13 @@ public:
     GameSetup& setup() { return setup_; }
 
 private:
-    // A widget of either layout, by id, and where it is on the screen.
-    struct Placed {
-        const Widget* widget = nullptr;
-        int x = 0, y = 0;
-    };
-    const Placed* find(int32_t id) const;
-    int32_t buttonAt(int x, int y) const;
     void click(int32_t id, bool shift);
-    std::string word(int entry, const char* english) const;
-    void drawText(Surface& screen, int32_t textBox, const std::string& text, Color color);
-    void drawButton(Surface& screen, const Placed& p);
 
-    Assets& assets_;
-    const Lexicon& lexicon_;
-    WindowLayout menu_, setupLayout_;
-    std::map<int32_t, Placed> widgets_;
     GameSetup setup_;
-    int32_t pressed_ = 0; // the button the mouse went down on, or 0
 };
+
+// The civilization level as the screens show it: its number and the word
+// ("2 EARLY").
+std::string civilizationLevel(const Lexicon& lexicon, int level);
 
 } // namespace reluva::botf

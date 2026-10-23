@@ -14,6 +14,7 @@
 #include "engines/botf/font.h"
 #include "engines/botf/lexicon.h"
 #include "engines/botf/menu_file.h"
+#include "engines/botf/empire_screen.h"
 #include "engines/botf/setup_screen.h"
 #include "engines/botf/snd_archive.h"
 #include "engines/botf/text_table.h"
@@ -166,9 +167,11 @@ private:
     bool outlines_ = true, selected_ = false, info_ = true;
 };
 
-// The game setup screen, working: the first of the game's own screens.
-// Click the controls as in the game; Accept (or Return) and Cancel show the
-// settings chosen in the window title and start again.
+// The start of a new game, working: the game setup screen, then the empire
+// selection screen, the first of the game's own screens. Click the controls
+// as in the game. Accept on the setup goes on to the empires; Cancel there
+// goes back; Accept there shows the choices in the window title and starts
+// again (there's no game to start yet).
 class SetupViewer {
 public:
     SetupViewer(System& sys, Surface& screen, const Archive& archive);
@@ -184,7 +187,8 @@ private:
     Assets assets_;
     Lexicon lexicon_;
     SetupScreen setup_;
-    bool ready_ = false;
+    EmpireScreen empires_;
+    bool ready_ = false, choosingEmpire_ = false;
     std::string status_;
 };
 
