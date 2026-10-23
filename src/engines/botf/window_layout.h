@@ -76,6 +76,7 @@ public:
     Error load(const std::vector<uint8_t>& data);
 
     uint32_t kind() const { return kind_; } // the file's first u32
+    size_t used() const { return used_; }   // bytes read; the files end there
     const Widget& root() const { return root_; }
     // Every widget, the root included, depth first; with each one's corner
     // on the screen (the sum of its own and its windows' positions).
@@ -88,6 +89,7 @@ public:
 
 private:
     uint32_t kind_ = 0;
+    size_t used_ = 0;
     Widget root_;
 };
 

@@ -26,6 +26,20 @@ void fillRect(Surface& s, int x, int y, int w, int h, Color c) {
     }
 }
 
+size_t applyColorKey(image::Image& img) {
+    size_t n = 0;
+    for (size_t i = 0; i + 3 < img.rgba.size(); i += 4) {
+        uint8_t* p = img.rgba.data() + i;
+        // 5-bit magenta (31, 0, 31) is 255, 0, 255 once widened; allow for
+        // a decoder that widens by shifting (248, 0, 248).
+        if (p[0] >= 248 && p[1] < 8 && p[2] >= 248) {
+            p[3] = 0;
+            ++n;
+        }
+    }
+    return n;
+}
+
 ImageViewer::ImageViewer(System& sys, Surface& screen, std::vector<const Archive*> archives)
     : sys_(sys), screen_(screen) {
     for (const Archive* a : archives) {
@@ -57,7 +71,10 @@ void ImageViewer::handleKey(uint32_t key) {
         next = 0;
     else if (key == key::End)
         next = n - 1;
-    else if (key == 'i') {
+    else if (key == 'k') {
+        key_ = !key_;
+        next = current_;
+    } else if (key == 'i') {
         info_ = !info_;
         next = current_;
     } else if (key == 's') {
@@ -87,6 +104,7 @@ void ImageViewer::show(size_t index) {
     else if (Error err2 = image::decode(data, img))
         status = "can't decode: " + err2.message;
     else {
+        const size_t keyed = key_ ? applyColorKey(img) : 0;
         // Images up to the screen's size (the full-screen 800x600 ones
         // included) are shown at their own size, in the middle; larger ones
         // at half or a third of it.
@@ -105,6 +123,8 @@ void ImageViewer::show(size_t index) {
         image::blit(screen_, shown, (screen_.w - shown.w) / 2, (screen_.h - shown.h) / 2);
         status = std::to_string(img.w) + "x" + std::to_string(img.h) + (scale > 1 ? " (shown at 1/" +
                  std::to_string(scale) + ")" : "");
+        if (key_)
+            status += "  colour key: " + std::to_string(keyed) + " pixels transparent";
     }
     const std::string line = std::to_string(index + 1) + "/" + std::to_string(images_.size()) + "  " +
                              std::filesystem::path(ref.archive->describe()).filename().string() + ": " + ref.name + "  " + status;
@@ -115,7 +135,7 @@ void ImageViewer::show(size_t index) {
     }
     sys_.setWindowTitle("Reluva - Birth of the Federation - images " + std::to_string(index + 1) + "/" +
                         std::to_string(images_.size()) + ": " + ref.name +
-                        " (Left/Right, S: next archive, I: info, Tab: next page)");
+                        " (Left/Right, S: next archive, K: colour key, I: info, Tab: next page)");
 }
 
 } // namespace reluva::botf

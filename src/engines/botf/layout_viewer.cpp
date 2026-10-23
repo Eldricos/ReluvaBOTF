@@ -100,6 +100,7 @@ const image::Image* LayoutViewer::picture(const std::string& name) {
         missing_[name] = "can't decode";
         return nullptr;
     }
+    applyColorKey(img);
     return &pictures_.emplace(name, std::move(img)).first->second;
 }
 

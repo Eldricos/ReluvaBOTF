@@ -205,7 +205,9 @@ Error WindowLayout::load(const std::vector<uint8_t>& data) {
         return Error::fail("too small");
     if (type != uint32_t(WidgetType::Window))
         return Error::fail("doesn't start with a window (type " + std::to_string(type) + ")");
-    return readWidget(in, WidgetType::Window, root_, 0);
+    Error err = readWidget(in, WidgetType::Window, root_, 0);
+    used_ = in.pos;
+    return err;
 }
 
 std::vector<WindowLayout::Placed> WindowLayout::placed() const {

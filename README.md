@@ -93,8 +93,8 @@ Linux (with each distro's packages) and Windows with Visual Studio 2022.
 
 - Birth of the Federation also opens as a data viewer, on the images of
   `stbof.res` and `alt.res`: **Left/Right** step through them,
-  **PageUp/PageDown** by 10, **S** jumps to the next archive, **I** hides the
-  status line. **Tab** goes on to the fonts (**Left/Right** pick one, **+/-**
+  **PageUp/PageDown** by 10, **S** jumps to the next archive, **K** shows the
+  colour key (magenta) as transparent, **I** hides the status line. **Tab** goes on to the fonts (**Left/Right** pick one, **+/-**
   change the sample text's size), then to the sounds (effects, speech and music)
   and the text tables (**Left/Right** pick one, **Up/Down** and
   **PageUp/PageDown** scroll, **F** changes the font) and the data tables

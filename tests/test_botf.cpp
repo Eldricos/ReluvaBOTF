@@ -11,6 +11,7 @@
 #include "engines/botf/game_files.h"
 #include "engines/botf/snd_archive.h"
 #include "engines/botf/text_table.h"
+#include "engines/botf/viewers.h"
 #include "engines/botf/window_layout.h"
 
 #include <algorithm>
@@ -459,6 +460,15 @@ void testWindowLayout() {
     CHECK(layout.load(Bytes(3, 0)));
 }
 
+void testColorKey() {
+    image::Image img;
+    img.w = 4;
+    img.h = 1;
+    img.rgba = {255, 0, 255, 255, 248, 0, 248, 255, 255, 0, 254, 255, 255, 40, 255, 255};
+    CHECK(applyColorKey(img) == 3);
+    CHECK(img.rgba[3] == 0 && img.rgba[7] == 0 && img.rgba[11] == 0 && img.rgba[15] == 255);
+}
+
 void testLzss() {
     // The start of the retail alt.res's first file: a flag byte, literals
     // and two references that fill the TGA header's zeros; the decoded
@@ -689,6 +699,7 @@ int main() {
     testTextTable();
     testDataTable();
     testWindowLayout();
+    testColorKey();
     testAltRes(tmp / "alt");
     testImaWithoutHeader();
     testSnd(tmp / "snd");

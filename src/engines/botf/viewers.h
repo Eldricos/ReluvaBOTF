@@ -34,9 +34,16 @@ constexpr int kScreenH = 600;
 // Fills a rectangle of an RGBA32 surface, clipped to it.
 void fillRect(Surface& s, int x, int y, int w, int h, Color c);
 
+// The interface pictures mark what isn't drawn with magenta (red and blue
+// full, no green), the colour key MPR's blits skip: makes those pixels
+// transparent, and returns how many there were. The key is set by the
+// executable, not stored in the files; magenta is what the pictures show.
+size_t applyColorKey(image::Image& img);
+
 // Browses the TGA images of the given archives (stbof.res, alt.res).
 //   Left/Right: previous/next   PageUp/PageDown: jump 10   Home/End: first/last
 //   S: the next archive's first image   I: the status line on/off
+//   K: the colour key (magenta shown as transparent) on/off
 class ImageViewer {
 public:
     ImageViewer(System& sys, Surface& screen, std::vector<const Archive*> archives);
@@ -55,7 +62,7 @@ private:
     Surface& screen_;
     std::vector<ImageRef> images_;
     size_t current_ = 0;
-    bool info_ = true;
+    bool info_ = true, key_ = false;
 };
 
 // Shows the .fnt fonts of an archive (stbof.res): the glyph sheet, and
