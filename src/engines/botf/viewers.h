@@ -11,6 +11,7 @@
 #include "common/types.h"
 #include "engines/botf/data_table.h"
 #include "engines/botf/font.h"
+#include "engines/botf/menu_file.h"
 #include "engines/botf/snd_archive.h"
 #include "engines/botf/text_table.h"
 #include "engines/botf/window_layout.h"
@@ -142,6 +143,8 @@ private:
 //   Left/Right: previous/next layout   Up/Down: previous/next widget
 //   PageUp/PageDown: jump 10 layouts   O: outlines on/off
 //   S: buttons' selected pictures   I: the details on/off
+// A selected menu widget is shown open: its .mnu's items in its fonts,
+// framed by its pictures (how the game frames it isn't known yet).
 class LayoutViewer {
 public:
     LayoutViewer(System& sys, Surface& screen, const Archive& archive);
@@ -153,6 +156,9 @@ private:
     void load();
     void show();
     const image::Image* picture(const std::string& name); // cached; null if missing
+    const MenuFile* menu(const std::string& name);        // the same
+    const Font* font(const std::string& name);            // the same
+    void drawMenu(const WindowLayout::Placed& placed, std::vector<std::string>& lines);
 
     System& sys_;
     Surface& screen_;
@@ -163,6 +169,8 @@ private:
     std::vector<WindowLayout::Placed> placed_;
     std::string error_;
     std::map<std::string, image::Image> pictures_;
+    std::map<std::string, MenuFile> menus_;
+    std::map<std::string, Font> fonts_;
     std::map<std::string, std::string> missing_; // name: why
     bool outlines_ = true, selected_ = false, info_ = true;
 };

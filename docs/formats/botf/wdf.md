@@ -47,7 +47,7 @@ Inside a window, each widget is preceded by its type (`i32`):
 |---|---|---|
 | 1 | window | how many widgets (`i32`), how many of each type 1-15 (`i32[15]`), then the widgets, grouped by type in that order (the editor says the game crashes otherwise) |
 | 2 | button | `i32` -1, `u8` kind (0, 1 or 2), `i32` repeats when held (0, 1), `i32` repeats a second, normal picture, selected picture |
-| 5 | menu | text rectangle (x, y, width, height), two fonts, the menu (`char[13]`, a `.mnu`), left, top, right and bottom pictures, one more file name |
+| 5 | menu | four values (0, 0, then the widget's x and y; see Menus), two fonts, the menu (`char[13]`, a `.mnu`), left, top, right and bottom pictures, one more file name |
 | 7 | slider | `i16` 0, maximum, how many cells, the bar's width (the widget's), `i32` 0 or the maximum again, cell off, cell on, marker off and marker on pictures, the bar's height (about the widget's), `i32` 0, `i32` 0. UE reads the last three as the maximum, cells and width again, but they aren't (an intelligence slider: 310, 31 cells, 186 wide; then 22, 0, 0) |
 | 8 | scroll bar | `i32` 0 or 1, handle on and handle off pictures, minimum, maximum |
 | 12 | list box | `i32` -1, two fonts, 10 column widths, how many columns (1-10) |
@@ -76,6 +76,43 @@ Most fonts (1,690 of 1,760) say 0, "use the game's default", with colour
 save/load list, and each race's system, labour, tech and tactical screens.
 The fonts named are the race fonts (`cardsn`, `ferngi`, `human`, `klingn`,
 `romuln`) at 9, 15, 20 and 28.
+
+## Menus
+
+A menu widget names a `.mnu`, the items of its pop-up menu. There are
+three, each used by the five races' screens:
+
+- `system.mnu` (in `?solars.wdf`, the system screen): one item, "home".
+- `fleets.mnu` (in `?tactscn.wdf`, tactical combat, twice): the task force
+  kinds, 1 Escorts, 2 Artillary (sic), 3 Capital, 4 Non-Combat, 5 Bases.
+- `combat.mnu` (in `?tactscn.wdf`): the combat orders, for one ship (1-12)
+  and for a group (101-112): Charge, Assault, Harry, Circle, Strafe, Flyby,
+  Evade, Ram, Retreat, Open hailing frequencies (8 and 11 aren't used);
+  then 200 Attack, 201 Open hailing frequencies, 900 Select Ship, 901
+  Select Group.
+
+```
+0    u32       1
+4    u32       how many items
+8    88 bytes an item:
+       0   i32       its number (what the game acts on, presumably)
+       4   char[13]  a picture ("none" in all of them)
+       17  char[31]  the label
+       48  40 bytes  the same in every item: 359, 0, three values that look like
+                     addresses, 0, 0, 359, 0, 1
+```
+
+Read by `src/engines/botf/menu_file.cpp`; worked out from the three files
+(UE doesn't read them), October 2026. The menus are in the language's
+`stbof.res` (the German ones differ).
+
+The menu widgets themselves (four values after the common part, then two
+fonts): the four values are 0, 0 and the widget's own x and y again, not a
+text rectangle as UE has it; the first font is the default (0) and the
+second has its own colour, per race in the system screen and red
+(`ff 00 00`) in combat: the highlight, presumably. How the game frames the
+menu with the four pictures is still to be seen; the viewer shows it open,
+the items in the menu's font.
 
 ## Pictures and transparency
 

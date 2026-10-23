@@ -53,7 +53,8 @@ struct Widget {
     uint8_t buttonKind = 0;
     bool repeats = false;
     int32_t repeatsPerSecond = 0;
-    // Menus and text boxes: where the text goes, inside the widget
+    // Text boxes: where the text goes, inside the widget. Menus: four values
+    // in the same place, 0, 0 and the widget's x and y again
     int32_t textX = 0, textY = 0, textW = 0, textH = 0;
     // Menus, list boxes, text boxes (list boxes and menus also have a second
     // font, for the selected line, presumably)

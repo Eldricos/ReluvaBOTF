@@ -9,6 +9,7 @@
 #include "engines/botf/data_table.h"
 #include "engines/botf/font.h"
 #include "engines/botf/game_files.h"
+#include "engines/botf/menu_file.h"
 #include "engines/botf/snd_archive.h"
 #include "engines/botf/text_table.h"
 #include "engines/botf/viewers.h"
@@ -460,6 +461,32 @@ void testWindowLayout() {
     CHECK(layout.load(Bytes(3, 0)));
 }
 
+void testMenuFile() {
+    // Two items: number, picture, label, then the constant tail.
+    Bytes f;
+    put32(f, 1);
+    put32(f, 2);
+    auto item = [&](uint32_t id, const std::string& pic, const std::string& label) {
+        put32(f, id);
+        putName(f, pic);
+        std::string l = label;
+        l.resize(31, '\0');
+        f.insert(f.end(), l.begin(), l.end());
+        f.resize(f.size() + 40, 0);
+    };
+    item(1, "none", "Solo Charge");
+    item(900, "ICON.TGA", "Select Ship");
+    CHECK(f.size() == 8 + 2 * 88);
+    MenuFile m;
+    CHECK(!m.load(f));
+    CHECK(m.items().size() == 2);
+    CHECK(m.items()[0].id == 1 && m.items()[0].picture.empty() && m.items()[0].label == "Solo Charge");
+    CHECK(m.items()[1].id == 900 && m.items()[1].picture == "icon.tga" && m.items()[1].label == "Select Ship");
+    f[4] = 3; // more items than the file holds
+    CHECK(m.load(f));
+    CHECK(m.load(Bytes(4, 0)));
+}
+
 void testColorKey() {
     image::Image img;
     img.w = 4;
@@ -700,6 +727,7 @@ int main() {
     testDataTable();
     testWindowLayout();
     testColorKey();
+    testMenuFile();
     testAltRes(tmp / "alt");
     testImaWithoutHeader();
     testSnd(tmp / "snd");

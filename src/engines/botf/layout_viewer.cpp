@@ -104,6 +104,106 @@ const image::Image* LayoutViewer::picture(const std::string& name) {
     return &pictures_.emplace(name, std::move(img)).first->second;
 }
 
+const MenuFile* LayoutViewer::menu(const std::string& name) {
+    if (auto it = menus_.find(name); it != menus_.end())
+        return &it->second;
+    if (missing_.count(name))
+        return nullptr;
+    std::vector<uint8_t> data;
+    MenuFile m;
+    if (Error err = archive_.read(name, data)) {
+        missing_[name] = "missing";
+        return nullptr;
+    }
+    if (Error err = m.load(data)) {
+        missing_[name] = "can't read: " + err.message;
+        return nullptr;
+    }
+    return &menus_.emplace(name, std::move(m)).first->second;
+}
+
+const Font* LayoutViewer::font(const std::string& name) {
+    if (auto it = fonts_.find(name); it != fonts_.end())
+        return &it->second;
+    if (missing_.count(name))
+        return nullptr;
+    std::vector<uint8_t> data;
+    Font f;
+    if (Error err = archive_.read(name, data)) {
+        missing_[name] = "missing";
+        return nullptr;
+    }
+    if (Error err = f.load(data)) {
+        missing_[name] = "can't read: " + err.message;
+        return nullptr;
+    }
+    return &fonts_.emplace(name, std::move(f)).first->second;
+}
+
+// The menu open where its widget is, tall enough for its items: the inside
+// dark, the top and bottom pictures at the top and bottom, the left and
+// right ones down the sides, then the items, one a line, the first in the
+// second (highlight) font's colour.
+void LayoutViewer::drawMenu(const WindowLayout::Placed& p, std::vector<std::string>& lines) {
+    const Widget& w = *p.widget;
+    const MenuFile* m = w.menuFile.empty() ? nullptr : menu(w.menuFile);
+    if (!m) {
+        lines.push_back("menu " + w.menuFile + (missing_.count(w.menuFile) ? " (" + missing_[w.menuFile] + ")" : ""));
+        return;
+    }
+    const Font* f = nullptr;
+    for (const WidgetFont& wf : w.fonts)
+        if (!f && !wf.file.empty())
+            f = font(wf.file);
+    const int lineH = f ? f->lineHeight() : font::kLineHeight;
+    const image::Image *left = nullptr, *top = nullptr, *right = nullptr, *bottom = nullptr;
+    for (const auto& [role, name] : w.pictures) {
+        if (role == "left")
+            left = picture(name);
+        else if (role == "top")
+            top = picture(name);
+        else if (role == "right")
+            right = picture(name);
+        else if (role == "bottom")
+            bottom = picture(name);
+    }
+    const int padTop = top ? top->h : 4, padBottom = bottom ? bottom->h : 4;
+    const int padLeft = left ? left->w : 4;
+    const int h = std::max(w.h, padTop + padBottom + int(m->items().size()) * lineH);
+    const int x = p.x, y = std::min(p.y, screen_.h - h);
+    fillRect(screen_, x, y, w.w, h, {0, 0, 0});
+    if (left)
+        for (int ty = y; ty < y + h; ty += left->h)
+            blitClipped(screen_, *left, x, ty, x, y, w.w, h);
+    if (right)
+        for (int ty = y; ty < y + h; ty += right->h)
+            blitClipped(screen_, *right, x + w.w - right->w, ty, x, y, w.w, h);
+    if (top)
+        blitClipped(screen_, *top, x, y, x, y, w.w, h);
+    if (bottom)
+        blitClipped(screen_, *bottom, x, y + h - bottom->h, x, y, w.w, h);
+    const Color normal = w.fonts.size() > 0 && w.fonts[0].own ? w.fonts[0].color : Color{230, 230, 230};
+    const Color hilite = w.fonts.size() > 1 && w.fonts[1].own ? w.fonts[1].color : Color{255, 220, 120};
+    std::string list = w.menuFile + ":";
+    for (size_t i = 0; i < m->items().size(); ++i) {
+        const MenuItem& item = m->items()[i];
+        const int ty = y + padTop + int(i) * lineH;
+        if (ty + lineH <= y + h) {
+            if (f)
+                f->draw(screen_, x + padLeft + 2, ty, item.label, i == 0 ? hilite : normal);
+            else
+                font::drawText(screen_, x + padLeft + 2, ty, item.label, i == 0 ? hilite : normal);
+        }
+        const std::string entry = " " + std::to_string(item.id) + " " + item.label + (i + 1 < m->items().size() ? "," : "");
+        if (list.size() + entry.size() > 125) { // the details strip's width in the built-in font
+            lines.push_back(list);
+            list = " ";
+        }
+        list += entry;
+    }
+    lines.push_back(list);
+}
+
 void LayoutViewer::handleKey(uint32_t key) {
     if (names_.empty())
         return;
@@ -210,6 +310,8 @@ void LayoutViewer::show() {
         if (!more.empty())
             lines.push_back(more);
     }
+    if (!placed_.empty() && placed_[widget_].widget->type == WidgetType::Menu)
+        drawMenu(placed_[widget_], lines);
     if (info_) {
         const int h = int(lines.size()) * font::kLineHeight + 4;
         fillRect(screen_, 0, screen_.h - h, screen_.w, h, {0, 0, 0});

@@ -101,7 +101,7 @@ Linux (with each distro's packages) and Windows with Visual Studio 2022.
   (**Left/Right** pick one, **Up/Down** and **PageUp/PageDown** pick a record)
   and the window layouts (**Left/Right** pick one, **Up/Down** pick a widget,
   **O** turns the outlines off, **S** shows buttons' selected pictures,
-  **I** hides the details).
+  **I** hides the details; a selected menu is shown open).
   On the sounds page: **Up/Down** pick one, **Left/Right**
   the archive, **Space** plays or stops it, **A** plays each as it's
   selected, and **R** changes the sample rate the speech and music are
