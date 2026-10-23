@@ -33,8 +33,11 @@ const char* widgetTypeName(WidgetType type);
 
 // How a menu, list box or text box draws its text.
 struct WidgetFont {
-    Color color;                  // stored red, blue, green
-    std::array<int32_t, 7> other; // not worked out
+    enum class Align { Left, Right, Center };
+
+    Color color;                  // stored red, blue, green (not confirmed)
+    std::array<int32_t, 7> other; // flags: [0] right-aligned, [1] centred; [2], [3] not known
+    Align align() const { return other[0] ? Align::Right : other[1] ? Align::Center : Align::Left; }
     bool own = false;             // use this font rather than the game's default
     std::string file;             // a .fnt in stbof.res
 };

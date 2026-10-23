@@ -34,6 +34,7 @@ using botf::TextViewer;
 using botf::GameFiles;
 using botf::ImageViewer;
 using botf::LayoutViewer;
+using botf::SetupViewer;
 using botf::SndArchive;
 using botf::SoundViewer;
 
@@ -94,12 +95,14 @@ public:
         TextViewer texts(sys_, screen_, stbof_);
         DataViewer data(sys_, screen_, stbof_);
         LayoutViewer layouts(sys_, screen_, stbof_);
+        SetupViewer setup(sys_, screen_, stbof_);
 
-        // Page 0 shows images, 1 fonts, 2 sounds, 3 text, 4 data, 5 layouts;
-        // Tab moves to the next one that has something to show.
-        constexpr int kPages = 6;
-        const size_t counts[kPages] = {images.count(), fonts.count(), sounds.count(),
-                                       texts.count(),  data.count(),  layouts.count()};
+        // Page 0 shows images, 1 fonts, 2 sounds, 3 text, 4 data, 5 layouts,
+        // 6 the game setup screen; Tab moves to the next one that has
+        // something to show.
+        constexpr int kPages = 7;
+        const size_t counts[kPages] = {images.count(), fonts.count(),   sounds.count(), texts.count(),
+                                       data.count(),   layouts.count(), setup.count()};
         int page = 0;
         while (counts[page] == 0 && page < kPages - 1)
             ++page;
@@ -114,8 +117,10 @@ public:
                 texts.activate();
             else if (page == 4)
                 data.activate();
-            else
+            else if (page == 5)
                 layouts.activate();
+            else
+                setup.activate();
         };
         activate();
         while (true) {
@@ -123,6 +128,11 @@ public:
             while (sys_.pollEvent(ev)) {
                 if (ev.type == EventType::Quit || ev.type == EventType::ReturnToLauncher)
                     return Error::success();
+                // The setup screen takes the mouse too; the other pages only keys.
+                if (page == 6 && ev.type != EventType::KeyDown && ev.type != EventType::KeyUp) {
+                    setup.handleEvent(ev);
+                    continue;
+                }
                 if (ev.type != EventType::KeyDown)
                     continue;
                 if (ev.key == key::Escape)
@@ -146,8 +156,10 @@ public:
                     texts.handleKey(ev.key);
                 else if (page == 4)
                     data.handleKey(ev.key);
-                else
+                else if (page == 5)
                     layouts.handleKey(ev.key);
+                else
+                    setup.handleEvent(ev);
             }
             if (page == 2)
                 sounds.update(sys_.getMillis());

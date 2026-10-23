@@ -5,6 +5,7 @@
 
 #include "common/text.h"
 
+#include <algorithm>
 #include <cstring>
 #include <string>
 
@@ -86,6 +87,14 @@ Error Font::load(const std::vector<uint8_t>& data) {
             return Error::fail("glyph row " + std::to_string(row + 1) + " has " + std::to_string(found) +
                                " framed cells, not " + std::to_string(kRowLengths[row]));
     }
+    brightest_ = 1;
+    for (const Glyph& g : glyphs_)
+        for (int gy = 0; gy < g.h; ++gy)
+            for (int gx = 0; gx < g.w; ++gx)
+                if (rgbaAt(sheet_, g.x + gx, g.y + gy) != background_) {
+                    const uint8_t* p = sheet_.pixel(g.x + gx, g.y + gy);
+                    brightest_ = std::max({brightest_, int(p[0]), int(p[1]), int(p[2])});
+                }
     return Error::success();
 }
 
@@ -106,6 +115,15 @@ int Font::measure(std::string_view utf8) const {
 }
 
 int Font::draw(Surface& s, int x, int y, std::string_view utf8, std::optional<Color> tint, int scale) const {
+    return drawImpl(s, x, y, utf8, tint, false, scale);
+}
+
+int Font::drawInColor(Surface& s, int x, int y, std::string_view utf8, Color color) const {
+    return drawImpl(s, x, y, utf8, color, true, 1);
+}
+
+int Font::drawImpl(Surface& s, int x, int y, std::string_view utf8, std::optional<Color> tint, bool shaded,
+                   int scale) const {
     for (size_t i = 0; i < utf8.size();) {
         const Glyph* g = glyph(text::nextUtf8(utf8, i));
         if (!g) {
@@ -118,7 +136,12 @@ int Font::draw(Surface& s, int x, int y, std::string_view utf8, std::optional<Co
                     continue;
                 const uint8_t* p = sheet_.pixel(g->x + gx, g->y + gy);
                 uint8_t c[3] = {p[0], p[1], p[2]};
-                if (tint) {
+                if (tint && shaded) {
+                    const int v = std::max({c[0], c[1], c[2]});
+                    c[0] = uint8_t(std::min(255, tint->r * v / brightest_));
+                    c[1] = uint8_t(std::min(255, tint->g * v / brightest_));
+                    c[2] = uint8_t(std::min(255, tint->b * v / brightest_));
+                } else if (tint) {
                     c[0] = uint8_t(c[0] * tint->r / 255);
                     c[1] = uint8_t(c[1] * tint->g / 255);
                     c[2] = uint8_t(c[2] * tint->b / 255);

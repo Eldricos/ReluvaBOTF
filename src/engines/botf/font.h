@@ -50,6 +50,10 @@ public:
     // the text.
     int draw(Surface& surface, int x, int y, std::string_view utf8, std::optional<Color> tint = std::nullopt,
              int scale = 1) const;
+    // Draws the text in a colour, as the game's screens do: the glyphs are
+    // shades of grey, and the brightest shade in the sheet comes out as
+    // `color`, the others in proportion.
+    int drawInColor(Surface& surface, int x, int y, std::string_view utf8, Color color) const;
     // Splits UTF-8 text into lines at most `width` pixels wide, breaking at
     // spaces and newlines; a word wider than a line gets a line of its own.
     std::vector<std::string> wrap(std::string_view utf8, int width) const;
@@ -60,6 +64,10 @@ private:
     int lineHeight_ = 0;
     int spaceAdvance_ = 0;
     uint32_t background_ = 0; // the sheet's background colour, RGBA as stored
+    int brightest_ = 255;     // the brightest channel of any glyph pixel
+
+    int drawImpl(Surface& surface, int x, int y, std::string_view utf8, std::optional<Color> color, bool shaded,
+                 int scale) const;
 };
 
 } // namespace reluva::botf

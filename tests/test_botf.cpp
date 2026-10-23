@@ -9,7 +9,9 @@
 #include "engines/botf/data_table.h"
 #include "engines/botf/font.h"
 #include "engines/botf/game_files.h"
+#include "engines/botf/lexicon.h"
 #include "engines/botf/menu_file.h"
+#include "engines/botf/setup_screen.h"
 #include "engines/botf/snd_archive.h"
 #include "engines/botf/text_table.h"
 #include "engines/botf/viewers.h"
@@ -20,6 +22,7 @@
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -487,6 +490,162 @@ void testMenuFile() {
     CHECK(m.load(Bytes(4, 0)));
 }
 
+// Files in memory, for the screens.
+struct MemoryArchive : Archive {
+    std::map<std::string, Bytes> files;
+    std::vector<std::string> list() const override {
+        std::vector<std::string> names;
+        for (const auto& [n, d] : files)
+            names.push_back(n);
+        return names;
+    }
+    bool has(std::string_view name) const override { return files.count(std::string(name)) > 0; }
+    Error read(std::string_view name, std::vector<uint8_t>& out) const override {
+        auto it = files.find(std::string(name));
+        if (it == files.end())
+            return Error::fail("missing");
+        out = it->second;
+        return Error::success();
+    }
+    std::string describe() const override { return "memory"; }
+};
+
+Bytes makeLexicon(const std::vector<std::string>& words) {
+    // The strings, then the table: a u32, a u16 count, offset and length each.
+    Bytes f(4, 0);
+    std::vector<uint32_t> offsets;
+    for (const std::string& w : words) {
+        offsets.push_back(uint32_t(f.size()));
+        f.insert(f.end(), w.begin(), w.end());
+        f.push_back(0);
+    }
+    const uint32_t table = uint32_t(f.size());
+    f[0] = uint8_t(table);
+    f[1] = uint8_t(table >> 8);
+    f[2] = uint8_t(table >> 16);
+    put32(f, 0);
+    f.push_back(uint8_t(words.size()));
+    f.push_back(uint8_t(words.size() >> 8));
+    for (size_t i = 0; i < words.size(); ++i) {
+        put32(f, offsets[i]);
+        put32(f, uint32_t(words[i].size() + 1));
+    }
+    return f;
+}
+
+void testLexicon() {
+    Lexicon lex;
+    CHECK(!lex.load(makeLexicon({"ADVANCED", "Gro\xdf", ""})));
+    CHECK(lex.size() == 3 && lex[0] == "ADVANCED" && lex[1] == "Gro\xc3\x9f" && lex[2].empty() && lex[99].empty());
+    Bytes bad = makeLexicon({"a"});
+    bad[0] = 0xff; // the table past the end
+    CHECK(lex.load(bad));
+    CHECK(lex.load(Bytes(2, 0)));
+}
+
+void testSetupScreen() {
+    // A setup layout with the screen's buttons in a row, 10x10 each, and an
+    // empty main menu.
+    const std::vector<int32_t> ids = {9201, 9202, 9207, 9209, 9211, 9212, 9214, 9215, 9217,
+                                      9219, 9221, 9223, 9225, 9227, 9229, 9231, 9233, 9234};
+    Bytes setup;
+    put32(setup, 2);
+    putWidget(setup, 1, 9200, 0, 0, 800, 600, "none");
+    putWindowCounts(setup, {{2, uint32_t(ids.size())}});
+    for (size_t i = 0; i < ids.size(); ++i) {
+        putWidget(setup, 2, uint32_t(ids[i]), uint32_t(i * 20), 100, 10, 10, "none");
+        put32(setup, 0xffffffff);
+        setup.push_back(0);
+        put32(setup, 0);
+        put32(setup, 0);
+        putName(setup, "none");
+        putName(setup, "none");
+    }
+    Bytes menu;
+    put32(menu, 2);
+    putWidget(menu, 1, 138, 0, 0, 800, 600, "none");
+    putWindowCounts(menu, {});
+    MemoryArchive archive;
+    archive.files["gmesetup.wdf"] = setup;
+    archive.files["opening.wdf"] = menu;
+    Assets assets(archive);
+    Lexicon lexicon;
+    SetupScreen screen(assets, lexicon);
+    CHECK(!screen.load());
+
+    auto click = [&](int32_t id, uint16_t mods = 0) {
+        const size_t i = size_t(std::find(ids.begin(), ids.end(), id) - ids.begin());
+        SetupScreen::Result r = SetupScreen::Result::Open;
+        for (EventType t : {EventType::MouseDown, EventType::MouseUp}) {
+            Event e;
+            e.type = t;
+            e.button = MouseButton::Left;
+            e.mods = mods;
+            e.mouseX = int(i) * 20 + 5;
+            e.mouseY = 105;
+            r = screen.handle(e);
+        }
+        return r;
+    };
+    // The manual's defaults.
+    const GameSetup& s = screen.setup();
+    CHECK(s.civilization == (std::array<int, 5>{1, 1, 1, 1, 1}) && s.minorRaces == 3 && s.difficulty == 2);
+    CHECK(s.randomEvents && s.manualCombat && s.victory == 0 && s.galaxyShape == 0 && s.galaxySize == 1);
+    // Each click moves to the next choice, round to the first.
+    click(9209);
+    CHECK(s.difficulty == 3);
+    click(9209);
+    click(9209);
+    CHECK(s.difficulty == 0);
+    click(9207);
+    CHECK(s.minorRaces == 0);
+    click(9217);
+    click(9219);
+    click(9221);
+    CHECK(!s.randomEvents && !s.manualCombat && s.victory == 1);
+    click(9234);
+    click(9233);
+    CHECK(s.galaxyShape == 1 && s.galaxySize == 2);
+    // Civilization levels: one empire, or with Shift all of them.
+    click(9225);
+    CHECK(s.civilization == (std::array<int, 5>{1, 2, 1, 1, 1}));
+    click(9225, keymod::Shift);
+    CHECK(s.civilization == (std::array<int, 5>{2, 2, 2, 2, 2}));
+    click(9225, keymod::Shift);
+    CHECK(s.civilization == (std::array<int, 5>{3, 3, 3, 3, 3}));
+    // Only "none" is known for the timers.
+    click(9212);
+    click(9211);
+    CHECK(s.strategicTimer == 0);
+    // Letting go off the button does nothing; Accept and Cancel end it.
+    Event down;
+    down.type = EventType::MouseDown;
+    down.button = MouseButton::Left;
+    down.mouseX = 2 * 20 + 5;
+    down.mouseY = 105;
+    screen.handle(down);
+    Event up = down;
+    up.type = EventType::MouseUp;
+    up.mouseY = 300;
+    screen.handle(up);
+    CHECK(s.minorRaces == 0);
+    CHECK(click(9201) == SetupScreen::Result::Accepted && click(9202) == SetupScreen::Result::Cancelled);
+    Event ret;
+    ret.type = EventType::KeyDown;
+    ret.key = key::Return;
+    CHECK(screen.handle(ret) == SetupScreen::Result::Accepted);
+
+    // Drawing without the pictures and fonts doesn't fail.
+    Surface surface;
+    surface.create(800, 600, PixelFormat::RGBA32);
+    screen.draw(surface);
+
+    // A layout without the screen's widgets is refused.
+    archive.files["gmesetup.wdf"] = menu;
+    SetupScreen other(assets, lexicon);
+    CHECK(other.load());
+}
+
 void testColorKey() {
     image::Image img;
     img.w = 4;
@@ -728,6 +887,8 @@ int main() {
     testWindowLayout();
     testColorKey();
     testMenuFile();
+    testLexicon();
+    testSetupScreen();
     testAltRes(tmp / "alt");
     testImaWithoutHeader();
     testSnd(tmp / "snd");

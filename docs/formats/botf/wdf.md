@@ -66,7 +66,8 @@ A font (48 bytes):
 
 ```
 0    u8[3]     colour: red, blue, green (in that order, as the editor reads it)
-3    i32[7]    not known: all 0, or a single 1 in one of the first four
+3    i32[7]    flags, all 0 or a single 1: [0] right-aligned, [1] centred,
+               neither: left-aligned; [2] and [3] not known
 31   i32       1: use this font, 0: the game's default
 35   char[13]  the font (a .fnt in stbof.res)
 ```
@@ -125,7 +126,12 @@ shows the pictures both ways (K).
 
 ## Not known yet
 
-- What the button kinds, the fonts' seven values and the 0s and -1s mean.
+- What the button kinds, the fonts' third and fourth flags and the 0s and
+  -1s mean. (The first two flags are the text's alignment: found by
+  comparing the game setup screen in the recording with `gmesetup.wdf`,
+  whose right-aligned galaxy values have the first, its centred preferences
+  the second, and its left-aligned civilization levels neither.)
 - How the game finds a widget: presumably by its id, from the executable.
-- Whether the colour order (red, blue, green) is right: the screens in the
-  Let's Play can settle it.
+- What the colour is: in the game setup screen the timers' `00 ff 00`
+  shows as pale green with some red, which no order of the bytes gives
+  (see [botf-screens.md](../../engines/botf-screens.md)).

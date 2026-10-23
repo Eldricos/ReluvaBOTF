@@ -26,20 +26,6 @@ void fillRect(Surface& s, int x, int y, int w, int h, Color c) {
     }
 }
 
-size_t applyColorKey(image::Image& img) {
-    size_t n = 0;
-    for (size_t i = 0; i + 3 < img.rgba.size(); i += 4) {
-        uint8_t* p = img.rgba.data() + i;
-        // 5-bit magenta (31, 0, 31) is 255, 0, 255 once widened; allow for
-        // a decoder that widens by shifting (248, 0, 248).
-        if (p[0] >= 248 && p[1] < 8 && p[2] >= 248) {
-            p[3] = 0;
-            ++n;
-        }
-    }
-    return n;
-}
-
 ImageViewer::ImageViewer(System& sys, Surface& screen, std::vector<const Archive*> archives)
     : sys_(sys), screen_(screen) {
     for (const Archive* a : archives) {

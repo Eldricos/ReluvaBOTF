@@ -13,21 +13,6 @@ namespace reluva::botf {
 
 namespace {
 
-// The part of the image inside the clip rectangle, blended over the screen.
-void blitClipped(Surface& dst, const image::Image& img, int x, int y, int cx, int cy, int cw, int ch) {
-    const int x0 = std::max({x, cx, 0}), y0 = std::max({y, cy, 0});
-    const int x1 = std::min({x + img.w, cx + cw, dst.w}), y1 = std::min({y + img.h, cy + ch, dst.h});
-    if (x0 >= x1 || y0 >= y1)
-        return;
-    image::Image part;
-    part.w = x1 - x0;
-    part.h = y1 - y0;
-    part.rgba.resize(size_t(part.w) * part.h * 4);
-    for (int py = 0; py < part.h; ++py)
-        std::copy_n(img.pixel(x0 - x, y0 - y + py), size_t(part.w) * 4, part.pixel(0, py));
-    image::blit(dst, part, x0, y0);
-}
-
 void outline(Surface& s, int x, int y, int w, int h, Color c) {
     fillRect(s, x, y, w, 1, c);
     fillRect(s, x, y + h - 1, w, 1, c);
@@ -58,7 +43,7 @@ std::string hexColor(Color c) {
 } // namespace
 
 LayoutViewer::LayoutViewer(System& sys, Surface& screen, const Archive& archive)
-    : sys_(sys), screen_(screen), archive_(archive) {
+    : sys_(sys), screen_(screen), assets_(archive) {
     for (std::string& n : archive.list())
         if (fs::toLower(n).ends_with(".wdf"))
             names_.push_back(std::move(n));
@@ -77,67 +62,12 @@ void LayoutViewer::load() {
     placed_.clear();
     widget_ = 0;
     std::vector<uint8_t> data;
-    if (Error err = archive_.read(names_[current_], data))
+    if (Error err = assets_.archive().read(names_[current_], data))
         error_ = err.message;
     else if (Error err2 = layout_.load(data))
         error_ = "can't read: " + err2.message;
     else
         placed_ = layout_.placed();
-}
-
-const image::Image* LayoutViewer::picture(const std::string& name) {
-    if (auto it = pictures_.find(name); it != pictures_.end())
-        return &it->second;
-    if (missing_.count(name))
-        return nullptr;
-    std::vector<uint8_t> data;
-    image::Image img;
-    if (Error err = archive_.read(name, data)) {
-        missing_[name] = "missing";
-        return nullptr;
-    }
-    if (Error err = image::decode(data, img)) {
-        missing_[name] = "can't decode";
-        return nullptr;
-    }
-    applyColorKey(img);
-    return &pictures_.emplace(name, std::move(img)).first->second;
-}
-
-const MenuFile* LayoutViewer::menu(const std::string& name) {
-    if (auto it = menus_.find(name); it != menus_.end())
-        return &it->second;
-    if (missing_.count(name))
-        return nullptr;
-    std::vector<uint8_t> data;
-    MenuFile m;
-    if (Error err = archive_.read(name, data)) {
-        missing_[name] = "missing";
-        return nullptr;
-    }
-    if (Error err = m.load(data)) {
-        missing_[name] = "can't read: " + err.message;
-        return nullptr;
-    }
-    return &menus_.emplace(name, std::move(m)).first->second;
-}
-
-const Font* LayoutViewer::font(const std::string& name) {
-    if (auto it = fonts_.find(name); it != fonts_.end())
-        return &it->second;
-    if (missing_.count(name))
-        return nullptr;
-    std::vector<uint8_t> data;
-    Font f;
-    if (Error err = archive_.read(name, data)) {
-        missing_[name] = "missing";
-        return nullptr;
-    }
-    if (Error err = f.load(data)) {
-        missing_[name] = "can't read: " + err.message;
-        return nullptr;
-    }
-    return &fonts_.emplace(name, std::move(f)).first->second;
 }
 
 // The menu open where its widget is, tall enough for its items: the inside
@@ -146,26 +76,26 @@ const Font* LayoutViewer::font(const std::string& name) {
 // second (highlight) font's colour.
 void LayoutViewer::drawMenu(const WindowLayout::Placed& p, std::vector<std::string>& lines) {
     const Widget& w = *p.widget;
-    const MenuFile* m = w.menuFile.empty() ? nullptr : menu(w.menuFile);
+    const MenuFile* m = w.menuFile.empty() ? nullptr : assets_.menu(w.menuFile);
     if (!m) {
-        lines.push_back("menu " + w.menuFile + (missing_.count(w.menuFile) ? " (" + missing_[w.menuFile] + ")" : ""));
+        lines.push_back("menu " + w.menuFile + (assets_.why(w.menuFile).empty() ? "" : " (" + assets_.why(w.menuFile) + ")"));
         return;
     }
     const Font* f = nullptr;
     for (const WidgetFont& wf : w.fonts)
         if (!f && !wf.file.empty())
-            f = font(wf.file);
+            f = assets_.font(wf.file);
     const int lineH = f ? f->lineHeight() : font::kLineHeight;
     const image::Image *left = nullptr, *top = nullptr, *right = nullptr, *bottom = nullptr;
     for (const auto& [role, name] : w.pictures) {
         if (role == "left")
-            left = picture(name);
+            left = assets_.picture(name);
         else if (role == "top")
-            top = picture(name);
+            top = assets_.picture(name);
         else if (role == "right")
-            right = picture(name);
+            right = assets_.picture(name);
         else if (role == "bottom")
-            bottom = picture(name);
+            bottom = assets_.picture(name);
     }
     const int padTop = top ? top->h : 4, padBottom = bottom ? bottom->h : 4;
     const int padLeft = left ? left->w : 4;
@@ -243,13 +173,13 @@ void LayoutViewer::show() {
     // picture, clipped to the widget, parents before children.
     for (const WindowLayout::Placed& p : placed_) {
         const Widget& w = *p.widget;
-        if (const image::Image* img = w.background.empty() ? nullptr : picture(w.background))
+        if (const image::Image* img = w.background.empty() ? nullptr : assets_.picture(w.background))
             blitClipped(screen_, *img, p.x, p.y, p.x, p.y, w.w, w.h);
         if (w.type == WidgetType::Button) {
             const char* want = selected_ ? "selected" : "normal";
             for (const auto& [role, name] : w.pictures)
                 if (role == want)
-                    if (const image::Image* img = picture(name))
+                    if (const image::Image* img = assets_.picture(name))
                         blitClipped(screen_, *img, p.x, p.y, p.x, p.y, w.w, w.h);
         }
     }
@@ -278,8 +208,8 @@ void LayoutViewer::show() {
         std::string pics;
         for (const auto& [role, name] : w.pictures) {
             pics += (pics.empty() ? "" : ", ") + role + " " + name;
-            if (auto it = missing_.find(name); it != missing_.end())
-                pics += " (" + it->second + ")";
+            if (const std::string why = assets_.why(name); !why.empty())
+                pics += " (" + why + ")";
         }
         if (!pics.empty())
             lines.push_back(pics);

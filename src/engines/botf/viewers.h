@@ -9,9 +9,12 @@
 #include "common/image.h"
 #include "common/system.h"
 #include "common/types.h"
+#include "engines/botf/assets.h"
 #include "engines/botf/data_table.h"
 #include "engines/botf/font.h"
+#include "engines/botf/lexicon.h"
 #include "engines/botf/menu_file.h"
+#include "engines/botf/setup_screen.h"
 #include "engines/botf/snd_archive.h"
 #include "engines/botf/text_table.h"
 #include "engines/botf/window_layout.h"
@@ -35,11 +38,6 @@ constexpr int kScreenH = 600;
 // Fills a rectangle of an RGBA32 surface, clipped to it.
 void fillRect(Surface& s, int x, int y, int w, int h, Color c);
 
-// The interface pictures mark what isn't drawn with magenta (red and blue
-// full, no green), the colour key MPR's blits skip: makes those pixels
-// transparent, and returns how many there were. The key is set by the
-// executable, not stored in the files; magenta is what the pictures show.
-size_t applyColorKey(image::Image& img);
 
 // Browses the TGA images of the given archives (stbof.res, alt.res).
 //   Left/Right: previous/next   PageUp/PageDown: jump 10   Home/End: first/last
@@ -155,24 +153,39 @@ public:
 private:
     void load();
     void show();
-    const image::Image* picture(const std::string& name); // cached; null if missing
-    const MenuFile* menu(const std::string& name);        // the same
-    const Font* font(const std::string& name);            // the same
     void drawMenu(const WindowLayout::Placed& placed, std::vector<std::string>& lines);
 
     System& sys_;
     Surface& screen_;
-    const Archive& archive_;
     std::vector<std::string> names_;
     size_t current_ = 0, widget_ = 0;
     WindowLayout layout_;
     std::vector<WindowLayout::Placed> placed_;
     std::string error_;
-    std::map<std::string, image::Image> pictures_;
-    std::map<std::string, MenuFile> menus_;
-    std::map<std::string, Font> fonts_;
-    std::map<std::string, std::string> missing_; // name: why
+    Assets assets_;
     bool outlines_ = true, selected_ = false, info_ = true;
+};
+
+// The game setup screen, working: the first of the game's own screens.
+// Click the controls as in the game; Accept (or Return) and Cancel show the
+// settings chosen in the window title and start again.
+class SetupViewer {
+public:
+    SetupViewer(System& sys, Surface& screen, const Archive& archive);
+    size_t count() const { return ready_ ? 1 : 0; }
+    void activate();
+    void handleEvent(const Event& event); // keys and the mouse
+
+private:
+    void show();
+
+    System& sys_;
+    Surface& screen_;
+    Assets assets_;
+    Lexicon lexicon_;
+    SetupScreen setup_;
+    bool ready_ = false;
+    std::string status_;
 };
 
 // Plays the .snd archives' sounds: sfx.snd's effects, the language's speech,
